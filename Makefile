@@ -16,13 +16,17 @@ TARGET := oba
 INCLUDES += -I ./src/include
 ALL_CFLAGS += $(INCLUDES) -o $(TARGET)
 
-.PHONY: all clean format run test help
+.PHONY: all clean docs format run test help
 
 all: $(PROJECTS)
 
 clean:
 	@echo "==== Removing oba ===="
 	rm -rf $(TARGET)
+
+docs:
+	@echo "=== Regenerating documentation ==="
+	tools/build_docs.sh
 
 format:
 	@echo "==== Formatting oba source code ===="
