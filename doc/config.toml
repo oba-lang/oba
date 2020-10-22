@@ -1,4 +1,4 @@
-baseURL = "http://oba.github.io/"
+baseURL = "https://oba-lang.github.io/"
 copyright = "Kendal Harland"
 languageCode = "en-us"
 title = "Oba"
@@ -26,7 +26,7 @@ weight = 1
 
 [[menu.main]]
 name = "Source"
-url =  "https://github.com/kendalharland/oba"
+url =  "https://github.com/oba-lang/oba"
 weight = 1
 
 [markup]

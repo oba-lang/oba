@@ -52,6 +52,7 @@ help:
 	@echo "TARGETS:"
 	@echo "   all (default)"
 	@echo "   clean"
+	@echo "   docs"
 	@echo "   format"
 	@echo "   oba"
 	@echo "   run"
