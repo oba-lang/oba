@@ -4,9 +4,12 @@ languageCode = "en-us"
 title = "Oba"
 theme = "whisper"
 publishDir = "docs"
+pygmentsCodeFences = true
+pygmentsCodefencesGuessSyntax = true
+pygmentsUseClasses = true
 
 [params]
-  colortheme = "white"
+  colortheme = "dark"
   homepage_button_link = "/guides/language"
   homepage_button_text = "Language Tour"
   homepage_intro = "A lightweight, fast, embeddable, functional scripting language."

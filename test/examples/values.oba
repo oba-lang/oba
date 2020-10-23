@@ -1,0 +1,13 @@
+// notest
+
+// example: guides/language/values booleans
+true
+false
+// end example
+
+// example: guides/language/values numbers
+1234
+-1234
+3.14159
+// end example
+
