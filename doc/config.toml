@@ -1,4 +1,4 @@
-baseURL = "https://oba-lang.github.io/"
+baseURL = ""
 copyright = "Kendal Harland"
 languageCode = "en-us"
 title = "Oba"
@@ -9,8 +9,7 @@ pygmentsCodefencesGuessSyntax = true
 pygmentsUseClasses = true
 
 [params]
-  colortheme = "dark"
-  homepage_button_link = "/guides/language"
+  homepage_button_link = "/guides/language/overview/"
   homepage_button_text = "Language Tour"
   homepage_intro = "A lightweight, fast, embeddable, functional scripting language."
 
@@ -24,7 +23,7 @@ weight = 1
 
 [[menu.main]]
 name = "Learn"
-url = "/guides/language/"
+url = "/guides/language/overview/"
 weight = 1
 
 [[menu.main]]

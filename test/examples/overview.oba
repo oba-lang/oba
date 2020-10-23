@@ -1,0 +1,12 @@
+// example: guides/language/overview demo
+import "system"
+
+fn fib n = match n
+  | 0 = 0
+  | 1 = 1
+  | n = fib(n-1) + fib(n-2)
+  ;
+
+system::print(fib(13))
+// end example
+// expect: 233

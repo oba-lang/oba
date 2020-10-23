@@ -3,5 +3,6 @@ import "system"
 // example: guides/language/values functions
 fn hello = system::print("hello")
 fn call f = f()
-call(hello) // expect: hello
+call(hello)
 // end example
+// expect: hello

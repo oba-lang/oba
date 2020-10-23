@@ -31,7 +31,7 @@ Oba uses double-precision floating point for all numeric values
 # Functions
 
 Functions are first class values in Oba. They can be stored in variables and
-passed arguments to other functions.
+passed as arguments to other functions.
 
 <!-- example functions -->
 

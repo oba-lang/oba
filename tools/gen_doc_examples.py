@@ -39,7 +39,7 @@ def scrape_examples(example_file):
     # Parse the test expectations.
     with open(example_file, "r") as f:
         for line in f.readlines():
-            if line.strip() == "":
+            if line.strip() == "" and not example:
                 continue
 
             match = BEGIN_EXAMPLE_RE.search(line)
@@ -63,10 +63,6 @@ def scrape_examples(example_file):
                 example["code"].append(line)
 
     return examples
-
-
-def generate_from_file(example_file):
-    return generate_examples(example_file)
 
 
 def generate(example_files, content_dir):
