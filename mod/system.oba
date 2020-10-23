@@ -1,0 +1,11 @@
+fn print value {
+  __native_print(value)
+}
+
+fn read_byte {
+  __native_read_byte()
+}
+
+fn read_line {
+  __native_read_line()
+}

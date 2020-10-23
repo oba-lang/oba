@@ -12,13 +12,28 @@ default.
 
 There are two boolean literals, `true` and `false`.
 
-<!-- example booleans -->
+```
+true
+false
+```
 
 # Numbers
 
 Oba uses double-precision floating point for all numeric values
 
-<!-- example numbers -->
+```
+0
+1234
+-1234
+3.14159
+```
+
+# Functions
+
+Functions are first class values in Oba. They can be stored in variables and
+passed arguments to other functions.
+
+<!-- example functions -->
 
 # Null
 

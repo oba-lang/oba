@@ -13,8 +13,6 @@ EXPECT_OUTPUT_RE = re.compile("// expect: ?(.*)")
 EXPECT_RUNTIME_ERROR_RE = re.compile("// expect runtime error: ?(.*)")
 EXPECT_COMPILE_ERROR_RE = re.compile("// expect compile error: ?(.*)")
 
-NOTEST = re.compile("// notest")
-
 # Exit codes
 PASSED = 0
 FAILED = 1
@@ -81,9 +79,6 @@ def run_test(oba, test_file):
             match = EXPECT_COMPILE_ERROR_RE.search(line)
             if match:
                 expected_errs.append("Compile error: " + match.group(1))
-
-            if NOTEST.search(line):
-                return []
 
     if expected_outs and expected_errs:
         raise TestError("Cannot expect both errors and output in the same test")

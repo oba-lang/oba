@@ -1,13 +1,7 @@
-// notest
+import "system"
 
-// example: guides/language/values booleans
-true
-false
+// example: guides/language/values functions
+fn hello = system::print("hello")
+fn call f = f()
+call(hello) // expect: hello
 // end example
-
-// example: guides/language/values numbers
-1234
--1234
-3.14159
-// end example
-
