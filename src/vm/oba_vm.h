@@ -6,9 +6,10 @@
 #include "oba_token.h"
 #include "oba_value.h"
 
-// The maximum size of the VM stack in bytes.
-// TODO(kendal): Support dynamically resizing the stack.
+// The maximum number of values that can be held on the stack at once.
 #define STACK_MAX 256
+
+// The maximum number of call-frames.
 #define FRAMES_MAX 256
 
 struct ObaVM {

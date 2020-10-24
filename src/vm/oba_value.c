@@ -257,7 +257,7 @@ void adjustCapacity(Table* table, int capacity) {
   Entry* entries = ALLOCATE(Entry, capacity);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = NULL;
-    // TODO(kendal): Set the value to some zero value.
+    entries[i].value = NIL_VAL;
   }
 
   for (int i = 0; i < table->capacity; i++) {
