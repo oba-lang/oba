@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "oba_memory.h"
+#include "oba_common.h"
 #include "oba_value.h"
 #include "oba_vm.h"
 

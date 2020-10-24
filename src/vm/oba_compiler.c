@@ -8,7 +8,6 @@
 #include "oba_common.h"
 #include "oba_compiler.h"
 #include "oba_function.h"
-#include "oba_memory.h"
 #include "oba_token.h"
 #include "oba_vm.h"
 

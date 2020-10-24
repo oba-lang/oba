@@ -1,5 +1,5 @@
 #include "oba_function.h"
-#include "oba_memory.h"
+#include "oba_common.h"
 #include "oba_value.h"
 
 ObjFunction* newFunction(ObaVM* vm, ObjModule* module) {

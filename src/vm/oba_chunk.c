@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "oba_chunk.h"
-#include "oba_memory.h"
+#include "oba_common.h"
 
 void initChunk(Chunk* chunk) {
   chunk->capacity = 0;

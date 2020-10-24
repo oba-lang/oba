@@ -6,8 +6,8 @@
 
 #include "oba.h"
 #include "oba_builtins.h"
+#include "oba_common.h"
 #include "oba_function.h"
-#include "oba_memory.h"
 #include "oba_vm.h"
 
 #ifdef DEBUG_TRACE_EXECUTION
