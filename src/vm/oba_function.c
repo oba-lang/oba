@@ -11,14 +11,6 @@ ObjFunction* newFunction(ObaVM* vm, ObjModule* module) {
   function->name = NULL;
 }
 
-void freeFunction(ObjFunction* function) {
-  function->arity = 0;
-  function->upvalueCount = 0;
-  function->name = NULL;
-  freeChunk(&function->chunk);
-  reallocate(function, sizeof(ObjFunction), 0);
-}
-
 ObjClosure* newClosure(ObaVM* vm, ObjFunction* function) {
   ObjClosure* closure = ALLOCATE_OBJ(vm, ObjClosure, OBJ_CLOSURE);
   ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
@@ -31,19 +23,9 @@ ObjClosure* newClosure(ObaVM* vm, ObjFunction* function) {
   return closure;
 }
 
-void freeClosure(ObjClosure* closure) {
-  FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
-  reallocate(closure, sizeof(ObjClosure), 0);
-}
-
 ObjUpvalue* newUpvalue(ObaVM* vm, Value* slot) {
   ObjUpvalue* upvalue = ALLOCATE_OBJ(vm, ObjUpvalue, OBJ_UPVALUE);
   upvalue->location = slot;
   upvalue->next = NULL;
   return upvalue;
-}
-
-void freeUpvalue(ObjUpvalue* upvalue) {
-  // TODO(kendal): Make a helper macro for this.
-  reallocate(upvalue, sizeof(ObjUpvalue), 0);
 }

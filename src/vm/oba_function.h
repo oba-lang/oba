@@ -60,12 +60,7 @@ typedef struct {
 } CallFrame;
 
 ObjFunction* newFunction(ObaVM*, ObjModule*);
-void freeFunction(ObjFunction*);
-
 ObjClosure* newClosure(ObaVM*, ObjFunction*);
-void freeClosure(ObjClosure*);
-
 ObjUpvalue* newUpvalue(ObaVM*, Value*);
-void freeUpvalue(ObjUpvalue*);
 
 #endif
