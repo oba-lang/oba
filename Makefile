@@ -3,7 +3,7 @@ ifndef config
 endif
 
 ifeq ($(config),debug)
-			 ALL_CFLAGS += -g -DDEBUG_TRACE_EXECUTION
+			 ALL_CFLAGS += -g -DDEBUG_MODE -DDEBUG_TRACE_EXECUTION
 else ifeq ($(config),optimize)
 			 ALL_CFLAGS += -DOBA_COMPUTED_GOTO
 else ifneq ($(config),release)

@@ -5,16 +5,47 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "oba_common.h"
 #include "oba_compiler.h"
 #include "oba_function.h"
 #include "oba_memory.h"
 #include "oba_token.h"
 #include "oba_vm.h"
 
+// The maximum number of locals that can be declared in any function scope.
+#define MAX_LOCALS UINT8_MAX
+
+// The maximum number of upvalues that can be closed over in any function scope.
+#define MAX_UPVALUES UINT8_MAX
+
+// The size of the buffer used to format error messages.
+#define MAX_ERROR_SIZE 1024
+
+// The maximum number of instructions that can be skipped by a jump instruction.
+//
+// The destination of a jump instruction is encoded as a 16-bit unsigned int.
+// This value helps ensure we that the destination operand does not exceed this
+// limit during compilation, which would result in the VM jumping to the wrong
+// instruction.
+#define MAX_JUMP UINT16_MAX
+
+// The compiler's view of a local value that is captured by a closure.
 typedef struct {
+  // The stack slot of this upvalue.
   uint8_t index;
+
+  // Whether the value is a local or an upvalue from the enclosing scope.
   bool isLocal;
 } Upvalue;
+
+// A value that lives on the stack.
+typedef struct {
+  Token token;
+  int depth;
+
+  // Whether this local is captured by an upvalue.
+  bool isCaptured;
+} Local;
 
 typedef struct {
   ObaVM* vm;
@@ -35,27 +66,19 @@ typedef struct {
   int currentLine;
 } Parser;
 
-typedef struct {
-  Token token;
-  int depth;
-
-  // Whether this local is captured by an upvalue.
-  bool isCaptured;
-} Local;
-
-struct sCompiler {
-  Compiler* parent;
+typedef struct Compiler {
+  struct Compiler* parent;
   ObjFunction* function;
 
   Local locals[MAX_LOCALS];
-  Upvalue upvalues[UINT8_MAX];
+  Upvalue upvalues[MAX_UPVALUES];
   int localCount;
   int currentDepth;
   Parser* parser;
 
   // A pointer to the VM, used to store objects allocated during compilation.
   ObaVM* vm;
-};
+} Compiler;
 
 void initCompiler(ObaVM* vm, Compiler* compiler, Parser* parser,
                   Compiler* parent) {
@@ -69,12 +92,12 @@ void initCompiler(ObaVM* vm, Compiler* compiler, Parser* parser,
 
 static void printError(Compiler* compiler, const char* label,
                        const char* format, va_list args) {
-  char message[1024];
+  char message[MAX_ERROR_SIZE];
   int length = sprintf(message, "%s: module %s line %d: ", label,
                        compiler->parser->module->name->chars,
                        compiler->parser->currentLine);
   length += vsprintf(message + length, format, args);
-  // TODO(kendal): Ensure length < 1024
+  ASSERT(length > MAX_ERROR_SIZE, "Error message should not exceed buffer");
   fprintf(stderr, "%s\n", message);
 }
 
@@ -151,9 +174,9 @@ static void emitBool(Compiler* compiler, Value value) {
 static void emitError(Compiler* compiler, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  char message[1024];
+  char message[MAX_ERROR_SIZE];
   int length = vsprintf(message, format, args);
-  // TODO(kendal): Ensure length < 1024
+  ASSERT(length > MAX_ERROR_SIZE, "Error message should not exceed buffer");
 
   Value error = OBJ_VAL(copyString(compiler->vm, message, length));
   emitOp(compiler, OP_ERROR);
@@ -165,7 +188,7 @@ static void patchJump(Compiler* compiler, int offset) {
 
   // -2 to account for the placeholder bytes.
   int jump = chunk->count - offset - 2;
-  if (jump > UINT16_MAX) {
+  if (jump > MAX_JUMP) {
     error(compiler, "Too much code to jump over");
     return;
   }
@@ -185,7 +208,7 @@ static void emitLoop(Compiler* compiler, int start) {
   emitOp(compiler, OP_LOOP);
 
   int jump = compiler->function->chunk.count - start - 2;
-  if (jump > UINT16_MAX) {
+  if (jump > MAX_JUMP) {
     error(compiler, "Loop body too large");
     return;
   }
