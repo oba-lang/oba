@@ -472,7 +472,6 @@ static bool isNumber(char c) { return isdigit(c); }
 
 // Finishes lexing a string.
 static void readString(Compiler* compiler) {
-  // TODO(kendal): Handle strings with escaped quotes.
   while (peekChar(compiler) != '"') {
     nextChar(compiler);
   }
@@ -800,7 +799,6 @@ static void parameterList(Compiler* compiler) {
   }
 }
 
-// TODO(kendal): Compile function guards.
 static void functionDefinition(Compiler* compiler) {
   if (!match(compiler, TOK_IDENT)) {
     error(compiler, "Expected an identifier");
@@ -962,7 +960,6 @@ static void member(Compiler* compiler, bool canAssign) {
   }
 }
 
-// TODO(kjharland): Support variable patterns.
 static void pattern(Compiler* compiler) {
   nextToken(compiler);
 

@@ -245,7 +245,6 @@ Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
   for (;;) {
     Entry* entry = &entries[index];
 
-    // TODO(kendal): Use string interning instead of comparing hashes?
     if (entry->key == NULL || entry->key->hash == key->hash) {
       return entry;
     }

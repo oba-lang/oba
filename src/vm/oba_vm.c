@@ -183,7 +183,6 @@ char* readFile(ObaVM* vm, const char* path) {
 
 // TODO(kendal): Allow the host application to resolve modules in its own way.
 static char* resolveModule(ObaVM* vm, Value name) {
-  // TODO(kendal): Precompile core modules as part of the VM.
   ObjString* path = AS_STRING(name);
 
   int pathLength = path->length + strlen("mod/.oba") + 1;
@@ -493,7 +492,6 @@ do {                                                                           \
     }
 
     CASE_OP(JUMP_IF_NOT_MATCH) : {
-      // TODO(kjharland): Support variable matches.
       int jump = READ_SHORT();
       Value a = peek(vm, 2);
       Value b = pop(vm);
