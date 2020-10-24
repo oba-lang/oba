@@ -13,7 +13,7 @@ if exists("b:current_syntax")
 endif
 
 " Keywords
-syn keyword obaLanguageKeywords debug else false fn if let match true while 
+syn keyword obaLanguageKeywords debug else false fn if let match true while import
 
 " Matches
 syn match obaOp      '[+-/*=]'
