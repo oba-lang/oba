@@ -1,0 +1,4 @@
+{
+  let v = 0
+  v = true // expect runtime error: Cannot assign 'bool' to variable of type 'number'
+}

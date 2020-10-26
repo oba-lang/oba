@@ -3,7 +3,7 @@
 // expect: 2
 {
   let count = 0
-  while count < 3{
+  while count < 3 {
     debug count
     count = count + 1
   }

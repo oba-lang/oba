@@ -132,6 +132,8 @@ void freeValueArray(ValueArray*);
 void writeValueArray(ValueArray*, Value);
 bool valuesEqual(Value a, Value b);
 void printValue(Value value);
+bool canAssignType(Value, Value);
+const char* valueTypeName(Value);
 
 ObjString* copyString(ObaVM* vm, const char* chars, int length);
 Obj* allocateObject(ObaVM* vm, size_t size, ObjType type);

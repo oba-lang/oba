@@ -17,6 +17,67 @@ void printFunction(ObjFunction* function) {
   }
 }
 
+const char* objectTypeName(Value value) {
+  switch (OBJ_TYPE(value)) {
+  case OBJ_STRING:
+    return "string";
+  case OBJ_CLOSURE:
+  case OBJ_NATIVE:
+  case OBJ_FUNCTION:
+    return "function";
+  case OBJ_UPVALUE:
+    return "upvalue";
+  case OBJ_MODULE:
+    return "module";
+  default:
+    break; // unreachable.
+  }
+}
+
+bool canAssignObjectType(Value oldValue, Value newValue) {
+  if (!IS_OBJ(newValue))
+    return false;
+
+  switch (OBJ_TYPE(oldValue)) {
+  case OBJ_CLOSURE:
+  case OBJ_FUNCTION:
+  case OBJ_NATIVE:
+    switch (OBJ_TYPE(newValue)) {
+    case OBJ_CLOSURE:
+    case OBJ_FUNCTION:
+    case OBJ_NATIVE:
+      return true;
+    }
+    return false;
+  default:
+    return OBJ_TYPE(oldValue) == OBJ_TYPE(newValue);
+  }
+}
+
+bool canAssignType(Value oldValue, Value newValue) {
+  switch (oldValue.type) {
+  case VAL_OBJ:
+    return canAssignObjectType(oldValue, newValue);
+  default:
+    return oldValue.type == newValue.type;
+  }
+}
+
+const char* valueTypeName(Value value) {
+  switch (value.type) {
+  case VAL_NIL:
+    return "nil";
+  case VAL_BOOL:
+    return "bool";
+  case VAL_NUMBER:
+    return "number";
+  case VAL_OBJ:
+    return objectTypeName(value);
+  default:
+    break; // unreachable.
+  }
+}
+
 void printObject(Value value) {
   Obj* obj = AS_OBJ(value);
   switch (obj->type) {
