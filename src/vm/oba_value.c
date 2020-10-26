@@ -180,8 +180,6 @@ void writeValueArray(ValueArray* array, Value value) {
   array->count++;
 }
 
-// FNV-1a hash function
-// https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function.
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   ObjString* string = ALLOCATE_OBJ(vm, ObjString, OBJ_STRING);
   string->length = length;
@@ -191,6 +189,8 @@ ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   return string;
 }
 
+// FNV-1a hash function
+// https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function.
 static uint32_t hashString(const char* key, int length) {
   uint32_t hash = 2166136261u;
 
