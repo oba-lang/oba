@@ -1,4 +1,4 @@
-name: CI
+name: Presubmit
 
 on:
   push:
