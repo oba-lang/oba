@@ -6,3 +6,13 @@ fn call f = f()
 call(hello)
 // end example
 // expect: hello
+
+// example: guides/language/values isNil
+let nil = system::print("print returns nil")
+system::print(isNil(nil)) // true
+system::print(isNil("")) // false
+// end example
+// expect: print returns nil
+// expect: true
+// expect: false
+

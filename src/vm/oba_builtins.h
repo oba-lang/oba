@@ -44,10 +44,18 @@ Value readLineNative(ObaVM* vm, int argc, Value* argv) {
 }
 
 Value printNative(ObaVM* vm, int argc, Value* argv) {
-  // Assume argc == 1 and argv != NULL
-  printValue(argv[0]);
+  if (argc > 0) {
+    printValue(argv[0]);
+  }
   printf("\n");
   return NIL_VAL;
+}
+
+Value isNilNative(ObaVM* vm, int argc, Value* argv) {
+  if (argc != 1) {
+    return OBA_BOOL(false);
+  }
+  return OBA_BOOL(argv[0].type == VAL_NIL);
 }
 
 Builtin __builtins__[] = {
@@ -56,6 +64,7 @@ Builtin __builtins__[] = {
     {"__native_read_byte", &readByteNative},
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
+    {"isNil", &isNilNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 

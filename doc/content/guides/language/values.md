@@ -35,14 +35,17 @@ passed as arguments to other functions.
 
 <!-- example functions -->
 
-# Null
+# Nil
 
-Oba has a singleton `null` value which indicates the absence of a value. It
+Oba has a singleton `nil` value which indicates the absence of a value. It
 is often used as a return value from built-in functions which don't return
-anything. It is not possible for user-code to reference `null` directly. For
-example, the following is not valid code:
+anything. There is no `nil` keyword, so the following code is invalid:
 
 ```
-let x = null
+let x = nil
 ```
+
+However, the user can detect whether a value is nil using `isNil`
+
+<!-- example isNil -->
 
