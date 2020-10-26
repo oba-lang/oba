@@ -150,46 +150,9 @@ static void closeUpvalue(ObaVM* vm, Value* last) {
   }
 }
 
-char* readFile(ObaVM* vm, const char* path) {
-  FILE* fp = fopen(path, "rb");
-  if (!fp) {
-    perror("failed to read file");
-    exit(1);
-  }
-
-  // Get the file size.
-  fseek(fp, 0L, SEEK_END);
-  long size = ftell(fp);
-  rewind(fp);
-
-  // Read the contents.
-  char* contents = malloc(size + 1);
-  if (!contents) {
-    fclose(fp);
-    perror("failed to allocate memory for file");
-    exit(1);
-  }
-  if (1 != fread(contents, size, 1, fp)) {
-    fclose(fp);
-    free(contents);
-    perror("failed to read file");
-    exit(1);
-  }
-  contents[size] = '\0';
-
-  fclose(fp);
-  return contents;
-}
-
-// TODO(kendal): Allow the host application to resolve modules in its own way.
-static char* resolveModule(ObaVM* vm, Value name) {
-  ObjString* path = AS_STRING(name);
-
-  int pathLength = path->length + strlen("mod/.oba") + 1;
-  char* fullpath = malloc(pathLength);
-  sprintf(fullpath, "mod/%s.oba", path->chars);
-  fullpath[pathLength] = '\0';
-  return fullpath;
+static Value resolveModule(ObaVM* vm, Value name) {
+  // TODO(kendal): Allow the host application to resolve modules in its own way.
+  return name;
 }
 
 ObjClosure* compileInModule(ObaVM* vm, Value value, const char* source) {
@@ -209,19 +172,21 @@ ObjClosure* compileInModule(ObaVM* vm, Value value, const char* source) {
 // TODO(kendal): If the module is already loaded, bail early.
 // TODO(kendal): Handle circular imports.
 static ObjClosure* importModule(ObaVM* vm, Value name) {
-  char* path = resolveModule(vm, name);
-  char* source = readFile(vm, path);
+  name = resolveModule(vm, name);
 
-  ObjClosure* moduleClosure = compileInModule(vm, name, source);
-  if (moduleClosure == NULL) {
-    FREE_ARRAY(char, source, strlen(source));
-    return NULL;
+  const char* source = NULL;
+  char* cname = AS_CSTRING(name);
+
+  CoreModule* module = &__core_modules__[0];
+  while (module->name != NULL) {
+    if (strcmp(module->name, cname) == 0) {
+      source = module->source();
+      break;
+    }
+    module++;
   }
 
-  FREE_ARRAY(char, path, strlen(path));
-  FREE_ARRAY(char, source, strlen(source));
-
-  return moduleClosure;
+  return compileInModule(vm, name, source);
 }
 
 static void return_(ObaVM* vm) {

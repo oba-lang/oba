@@ -36,7 +36,7 @@ format:
 
 oba: clean
 	@echo "==== Building oba ($(config)) ===="
-	$(CC) $(ALL_CFLAGS) ./src/main.c ./src/vm/*.c
+	$(CC) $(ALL_CFLAGS) ./src/main.c ./mod/*.c ./src/vm/*.c 
 
 run: oba
 	@echo "==== Running oba ($(config)) ===="

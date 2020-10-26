@@ -5,10 +5,10 @@
 #include <unistd.h>
 
 #include "oba.h"
+#include "oba_core_modules.h"
 #include "oba_value.h"
 
 // TODO(kendal): Support error reporting in natives.
-
 Value sleepNative(ObaVM* vm, int argc, Value* argv) {
   // Assume argc == 1 and argv != NULL
   Value seconds = argv[0];
@@ -57,6 +57,22 @@ Builtin __builtins__[] = {
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
+};
+
+typedef const char* (*SourceLoader)();
+
+typedef struct {
+  const char* name;
+  SourceLoader source;
+} CoreModule;
+
+extern const char* systemModSource;
+extern const char* timeModSource;
+
+CoreModule __core_modules__[] = {
+    {"system", obaSystemModSource},
+    {"time", obaTimeModSource},
+    {NULL, NULL},
 };
 
 #endif
