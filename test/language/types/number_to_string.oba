@@ -1,0 +1,4 @@
+{
+  let v = 0
+  v = "" // expect runtime error: Cannot assign 'string' to variable of type 'number'
+}

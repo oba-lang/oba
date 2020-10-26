@@ -1,0 +1,6 @@
+fn f = 1 
+
+{
+  let v = f
+  v = true // expect runtime error: Cannot assign 'bool' to variable of type 'function'
+}

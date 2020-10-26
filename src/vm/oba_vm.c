@@ -498,8 +498,19 @@ do {                                                                           \
 
     CASE_OP(SET_LOCAL) : {
       uint8_t slot = READ_BYTE();
-      vm->frame->slots[slot] = peek(vm, 1);
-      DISPATCH();
+
+      Value oldValue = vm->frame->slots[slot];
+      Value newValue = peek(vm, 1);
+      if (canAssignType(oldValue, newValue)) {
+        vm->frame->slots[slot] = peek(vm, 1);
+        DISPATCH();
+      }
+
+      const char* oldTypeName = valueTypeName(oldValue);
+      const char* newTypeName = valueTypeName(newValue);
+      runtimeError(vm, "Cannot assign '%s' to variable of type '%s'",
+                   newTypeName, oldTypeName);
+      return OBA_RESULT_RUNTIME_ERROR;
     }
 
     CASE_OP(GET_LOCAL) : {

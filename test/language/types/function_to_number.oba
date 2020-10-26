@@ -1,0 +1,6 @@
+fn f = 1 
+
+{
+  let v = f
+  v = 1 // expect runtime error: Cannot assign 'number' to variable of type 'function'
+}
