@@ -1,0 +1,13 @@
+// example: guides/language/functions closure
+import "system"
+
+fn capture value {
+  fn print {
+    system::print(value)
+  }
+}
+
+let printer = capture(1)
+printer() // Prints: 1
+// end example
+// expect: 1
