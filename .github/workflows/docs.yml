@@ -11,16 +11,23 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.7
+
+    - name: Install Python 3.7
       uses: actions/setup-python@v2
       with:
         python-version: 3.7
 
-    - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v2
-        with:
-          hugo-version: '0.77.0'
-          extended: true
+    - name: Install Hugo
+      uses: peaceiris/actions-hugo@v2
+      with:
+        hugo-version: '0.76.5'
+        extended: true
 
-    - name: publish docs
+    - name: Setup Git
+      env: 
+        SSH_KEY: ${{secrets.DOC_SITE_SECRET}}
+        USERNAME: ${{github.actor}} 
+      run: tools/gh-actions/init_git.sh
+
+    - name: Publish
       run: tools/docs.sh -p
