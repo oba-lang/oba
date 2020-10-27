@@ -4,7 +4,7 @@ date: 2020-10-22T09:11:26-04:00
 draft: false
 ---
 
-# Comments
+## Comments
 
 Oba has line comments, only, which start with `//` and end on a newline:
 
@@ -12,13 +12,13 @@ Oba has line comments, only, which start with `//` and end on a newline:
 // This is a comment
 ```
 
-# Reserved words
+## Reserved words
 
 ```
 debug false let true if else while match fn import
 ```
 
-# Identifiers
+## Identifiers
 
 Identifiers start with an underscore or letter and contain letters, digits, and
 underscores. Examples:
@@ -32,7 +32,7 @@ alph4num3r1c
 ALL_CAPS
 ```
 
-# Newlines
+## Newlines
 
 Oba does not have semicolons, except for in special cases. Instead, newlines
 (\n) are used to terminate statements:
@@ -42,8 +42,8 @@ system::print("hello")
 system::print("there")
 ```
 
-Newlines in the middle of statements are ignored, to allow long statements to
-be broken across multiple lines for organization:
+Newlines in the middle of statements are ignored to allow long statements to
+be broken across multiple lines:
 
 ```
 call_function_with_many_args(
@@ -52,9 +52,9 @@ call_function_with_many_args(
 )
 ```
 
-# Blocks
+## Blocks
 
-Blocks are used to create nested scopes, and are delimited by curly braces. They
+Blocks are used to create nested scopes and are delimited by curly braces. They
 are used as the bodies of functions, if-statements and loops. Some examples:
 
 ```
@@ -78,7 +78,7 @@ fn foo {
 }
 ```
 
-# Predenence and associativity
+## Precedence and associativity
 
 Oba has both prefix and infix operators. Unary operators such as the "not" 
 operator `!` are always right-associative. Binary operators such as `+-*/` are
