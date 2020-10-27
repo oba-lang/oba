@@ -26,7 +26,7 @@ clean:
 
 docs:
 	@echo "=== Regenerating documentation ==="
-	tools/build_docs.sh
+	tools/docs.sh -b
 
 format:
 	@echo "==== Formatting oba source code ===="
