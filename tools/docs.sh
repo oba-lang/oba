@@ -36,7 +36,7 @@ function publish {
 
   pushd $DOCS_DIR
   git add -A
-  git commit -m "Rengerate docs"
+  git commit -m "Regenerate docs"
   git push origin master -f
   popd
 }
