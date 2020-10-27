@@ -54,7 +54,7 @@ call_function_with_many_args(
 
 ## Blocks
 
-Blocks are used to create nested scopes, and are delimited by curly braces. They
+Blocks are used to create nested scopes and are delimited by curly braces. They
 are used as the bodies of functions, if-statements and loops. Some examples:
 
 ```
