@@ -24,10 +24,11 @@ function build {
   popd
 
   # Copy the generated docs to the submodule
+  # Make sure we're on master first
+  git -C $DOCS_DIR checkout master
   rm -rf $DOCS_DIR/*
   mv $workdir/doc/docs/* $DOCS_DIR/
   rm -rf $workdir
-
 }
 
 function publish {
@@ -36,7 +37,7 @@ function publish {
   pushd $DOCS_DIR
   git add -A
   git commit -m "Rengerate docs"
-  git push origin master
+  git push origin master -f
   popd
 }
 
