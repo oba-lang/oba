@@ -2,3 +2,6 @@ debug 1 + 2 // expect: 3
 debug 3 - 4 // expect: -1
 debug 5 * 6 // expect: 30
 debug 7 / 8 // expect: 0.875
+
+// Left-associativity
+debug 1 + 2 - 3 + 4 // expect: 4

@@ -1091,7 +1091,7 @@ static void infixOp(Compiler* compiler, bool canAssign) {
 
   ignoreNewlines(compiler);
 
-  // Compile the right hand side (right-associative).
+  // Compile the right hand side (left-associative).
   parse(compiler, rule->precedence);
 
   switch (opType) {
