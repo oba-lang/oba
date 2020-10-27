@@ -92,3 +92,42 @@ below:
 | 3          | + -             | Add,Subtract    | Left          |
 | 4          | / *             | Multiply,Divide | Left          |
 | 5          | ::              | Membership      | Left          |
+
+## Grammar
+
+```
+declaration   = import
+              | statement
+import        = 'import' STRING
+statement     = functionDefn
+              | variableDecl
+              | debugStmt
+              | blockStmt
+              | ifStmt
+              | whileStmt
+              | expression
+functionDefn  = 'fn' IDENT parameterList functionBody
+variableDecl  = 'let' IDENT '=' expression
+debugStmt     = 'debug' expression
+blockStmt     = '{' declaration* '}'
+ifStmt        = 'if' expression statement ('else' statement)?
+whileStmt     = 'while' expression statement
+expression    = grouping
+              | PREFIX_OP expression
+              | TERM INIFIX_OP expression
+grouping      = '(' expression* ')
+parameterList = IDENT*
+functionBody  = expression
+              | blockStmt
+TERM          = IDENT
+              | NUMBER
+              | STRING
+              | functionCall
+IDENT         = ([a-zA-Z_][a-zA-Z_0-9]*) ('::' IDENT)*
+STRING        = '"' [^'"']* '"'
+NUMBER        = [0-9]+
+functionCall  = IDENT '(' (expression ','?)* ')'
+PREFIX_OP     = '!'
+INIFIX_OP     = '+' '-' '*' '/'
+
+```
