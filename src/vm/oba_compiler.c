@@ -522,7 +522,31 @@ static void readString(Compiler* compiler) {
       break;
     }
 
-    writeByteBuffer(&buffer, c);
+    if (c == '\\') {
+      char nc = nextChar(compiler);
+      switch (nc) {
+      case '"':
+        writeByteBuffer(&buffer, '"');
+        break;
+      case '%':
+        writeByteBuffer(&buffer, '%');
+        break;
+      case '\\':
+        writeByteBuffer(&buffer, '\\');
+        break;
+      case 'n':
+        writeByteBuffer(&buffer, '\n');
+        break;
+      case 'r':
+        writeByteBuffer(&buffer, '\r');
+        break;
+      default:
+        lexError(compiler, "Invalid escape character '%c'.", nc);
+        break;
+      }
+    } else {
+      writeByteBuffer(&buffer, c);
+    }
   }
 
   makeToken(compiler, type);
