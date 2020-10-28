@@ -1,0 +1,5 @@
+debug "\"" // expect: "
+debug "\n" // expect: 
+           // expect:
+debug "\%" // expect: %
+debug "\\" // expect: \

@@ -113,6 +113,16 @@ a + b
 )")
 ```
 
+Strings also support the following escape characters:
+
+| Character   | Description      |
+|-------------|------------------|
+|`\%`         | Percent sign     |
+|`\\`         | Backslash        |
+|`\r`         | Carriage return  |
+|`\n`         | Newline          |
+|`\"`         | Double quotation |
+
 ## Precedence and associativity
 
 Oba has both prefix and infix operators. Unary operators such as the "not" 
