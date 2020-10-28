@@ -43,6 +43,18 @@ Value readLineNative(ObaVM* vm, int argc, Value* argv) {
   return value;
 }
 
+Value formatNative(ObaVM* vm, int argc, Value* argv) {
+  switch (argc) {
+  case 0:
+      return OBJ_VAL(takeString(vm, "", 0));
+  case 1:
+  default:
+      // This should error if we have more than one arg but we don't have error
+      // reporting yet.
+      return OBJ_VAL(formatValue(vm, argv[0]));
+  } 
+}
+
 Value printNative(ObaVM* vm, int argc, Value* argv) {
   if (argc > 0) {
     printValue(argv[0]);
@@ -65,6 +77,7 @@ Builtin __builtins__[] = {
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
     {"isNil", &isNilNative},
+    {"format", &formatNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 

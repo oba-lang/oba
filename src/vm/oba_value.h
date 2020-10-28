@@ -131,6 +131,7 @@ void freeValueArray(ValueArray*);
 // Writes a byte to the given [ValueArray], allocating if necessary.
 void writeValueArray(ValueArray*, Value);
 bool valuesEqual(Value a, Value b);
+ObjString* formatValue(ObaVM* vm, Value value);
 void printValue(Value value);
 bool canAssignType(Value, Value);
 const char* valueTypeName(Value);

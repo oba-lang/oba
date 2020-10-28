@@ -561,6 +561,12 @@ do {                                                                           \
       DISPATCH();
     }
 
+    CASE_OP(STRING): {
+      ObjString* string = formatValue(vm, pop(vm));
+      push(vm, OBJ_VAL(string));
+      DISPATCH();
+    }
+
     CASE_OP(CALL) : {
       uint8_t argCount = READ_BYTE();
       if (!callValue(vm, peek(vm, argCount + 1), argCount)) {

@@ -7,6 +7,18 @@
 #include "oba_value.h"
 #include "oba_vm.h"
 
+ObjString* formatFunction(ObaVM* vm, ObjFunction* function) {
+  char buf[1024];
+  int length = 0;
+
+  if (function->name != NULL) {
+    length = sprintf(buf,"<fn %s::%s>", function->module->name->chars, function->name->chars);
+    return copyString(vm, buf, length);
+  } else {
+    return copyString(vm, "<fn>", 4);
+  }
+}
+
 void printFunction(ObjFunction* function) {
   if (function->name != NULL) {
     printf("<fn %s::%s>", function->module->name->chars, function->name->chars);
@@ -75,6 +87,35 @@ const char* valueTypeName(Value value) {
     return objectTypeName(value);
   default:
     break; // unreachable.
+  }
+}
+
+ObjString* formatValue(ObaVM*, Value);
+ObjString* formatObject(ObaVM* vm, Value value) {
+  Obj* obj = AS_OBJ(value);
+
+  char buf[1024];
+  int length = 0;
+
+  switch (obj->type) {
+  case OBJ_CLOSURE:
+    return formatFunction(vm, AS_CLOSURE(value)->function);
+  case OBJ_FUNCTION:
+    return formatFunction(vm, AS_FUNCTION(value));
+  case OBJ_STRING:
+    return AS_STRING(value);
+  case OBJ_NATIVE:
+    length = sprintf(buf, "<native fn>");
+    return copyString(vm, buf, length);
+  case OBJ_UPVALUE:
+    return formatValue(vm, *(AS_UPVALUE(value)->location));
+  case OBJ_MODULE: {
+    ObjModule* module = (ObjModule*)obj;
+    length = sprintf(buf, "<module %s>", module->name->chars);
+    return copyString(vm, buf, length);
+  }
+  default:
+    return NULL; // Unreachable
   }
 }
 
@@ -268,6 +309,26 @@ bool valuesEqual(Value a, Value b) {
     return objectsEqual(a, b);
   default:
     return false; // Unreachable.
+  }
+}
+
+ObjString* formatValue(ObaVM* vm, Value value) {
+  char buf[1024];
+  int length = 0;
+  
+  switch (value.type) {
+  case VAL_NUMBER:
+    length = sprintf(buf, "%g", AS_NUMBER(value));
+    return copyString(vm, buf, length);
+  case VAL_BOOL:
+    length = sprintf(buf, AS_BOOL(value) ? "true" : "false");
+    return copyString(vm, buf, length);
+  case VAL_OBJ:
+    return formatObject(vm, value);
+  case VAL_NIL:
+    return copyString(vm, "nil", 3);
+  default:
+    return NULL; // Unreachable
   }
 }
 
