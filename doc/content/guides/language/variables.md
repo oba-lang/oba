@@ -68,7 +68,7 @@ For example: Once a variable holds a number value, it must always hold a number
 value:
 
 ```
-fn make_var {
+fn makeVar {
   let x = 1
   x = "" // Error
   x = 10 // OK

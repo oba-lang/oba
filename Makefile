@@ -36,6 +36,7 @@ format:
 
 oba: clean
 	@echo "==== Building oba ($(config)) ===="
+	python3 tools/inline_modules.py
 	$(CC) $(ALL_CFLAGS) ./src/main.c ./mod/*.c ./src/vm/*.c 
 
 run: oba

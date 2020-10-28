@@ -1,12 +1,12 @@
-fn make_closure {
-  let outer_value = "outer"
+fn makeClosure {
+  let outerValue = "outer"
   fn middle {
-      debug outer_value
+      debug outerValue
   }
    
   middle
 }
 
-let middle = make_closure()
+let middle = makeClosure()
 middle() // expect: outer
 
