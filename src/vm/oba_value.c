@@ -222,6 +222,28 @@ void writeValueArray(ValueArray* array, Value value) {
   array->count++;
 }
 
+void initByteBuffer(ByteBuffer* buf) {
+  buf->capacity = 0;
+  buf->count = 0;
+  buf->bytes = NULL;
+}
+
+void freeByteBuffer(ByteBuffer* buf) {
+  FREE_ARRAY(uint8_t, buf->bytes, buf->capacity);
+  initByteBuffer(buf);
+}
+
+void writeByteBuffer(ByteBuffer* buf, uint8_t value) {
+  if (buf->capacity <= buf->count) {
+    int oldCap = buf->capacity;
+    buf->capacity = GROW_CAPACITY(oldCap);
+    buf->bytes = GROW_ARRAY(uint8_t, buf->bytes, oldCap, buf->capacity);
+  }
+
+  buf->bytes[buf->count] = value;
+  buf->count++;
+}
+
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   ObjString* string = ALLOCATE_OBJ(vm, ObjString, OBJ_STRING);
   string->length = length;

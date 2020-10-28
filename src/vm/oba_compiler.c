@@ -9,6 +9,7 @@
 #include "oba_compiler.h"
 #include "oba_function.h"
 #include "oba_token.h"
+#include "oba_value.h"
 #include "oba_vm.h"
 
 // The maximum number of locals that can be declared in any function scope.
@@ -496,11 +497,10 @@ static bool isNumber(char c) { return isdigit(c); }
 
 // Finishes lexing a string.
 static void readString(Compiler* compiler) {
-  TokenType type = TOK_STRING;
+  ByteBuffer buffer;
+  initByteBuffer(&buffer);
 
-  // Number of chars to remove from the tokens tring.
-  // -2 removes the trailing '"'.
-  int end = -2;
+  TokenType type = TOK_STRING;
 
   for (;;) {
     char c = nextChar(compiler);
@@ -519,17 +519,16 @@ static void readString(Compiler* compiler) {
       }
       compiler->parser->isInterpolating = true;
       type = TOK_INTERPOLATION;
-      // Remove the trailing '%(', since there is no trailing '"'
-      end = -3;
       break;
     }
+
+    writeByteBuffer(&buffer, c);
   }
 
   makeToken(compiler, type);
 
-  Value string =
-      OBJ_VAL(copyString(compiler->vm, compiler->parser->current.start + 1,
-                         compiler->parser->current.length + end));
+  Value string = OBJ_VAL(copyString(compiler->vm, buffer.bytes, buffer.count));
+  freeByteBuffer(&buffer);
   compiler->parser->current.value = string;
 }
 
