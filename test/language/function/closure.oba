@@ -1,6 +1,6 @@
-fn make_closure parameter { 
+fn makeClosure parameter { 
   fn closure { debug parameter }
 }
 
-let closure = make_closure("parameter")
+let closure = makeClosure("parameter")
 closure() // expect: parameter

@@ -2,10 +2,10 @@ fn print value {
   __native_print(value)
 }
 
-fn read_byte {
+fn readByte {
   __native_read_byte()
 }
 
-fn read_line {
+fn readLine {
   __native_read_line()
 }
