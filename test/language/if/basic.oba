@@ -1,0 +1,25 @@
+if true {
+  debug "true" // expect: true
+}
+
+if false {
+  debug "then"
+} else {
+  debug "else" // expect: else
+}
+
+if false {
+  debug "then"
+} else if true {
+  debug "else if" // expect: else if
+} else {
+  debug "else"
+}
+
+if false {
+  debug "then"
+} else if false {
+  debug "else if"
+} else {
+  debug "else" // expect: else
+}
