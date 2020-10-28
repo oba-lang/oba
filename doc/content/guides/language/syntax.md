@@ -78,6 +78,41 @@ fn foo {
 }
 ```
 
+## Strings
+
+Oba strings are surrounded by double-quotes and can span newlines:
+
+```
+"This is a string"
+
+"This
+is
+also
+a
+string
+"
+```
+
+Values can be interpolated within strings using `%()` notation:
+
+```
+import "system"
+
+let a = 1;
+let b = 2;
+
+system::print("%(a) + %(b) = %(a + b)") // Prints: 1 + 2 = 3
+```
+
+The interpolated expression can span multiple lines as well. This prints the
+same thing as the above example:
+
+```
+system::print("%(a) + %(b) = %(
+a + b
+)")
+```
+
 ## Precedence and associativity
 
 Oba has both prefix and infix operators. Unary operators such as the "not" 

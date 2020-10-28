@@ -32,8 +32,22 @@ typedef enum {
   TOK_IDENT,
   TOK_NUMBER,
 
-  // A String literal.
+  // A string literal.
   TOK_STRING,
+
+  // A string literal with an interpolated expression.
+  //
+  // The string:
+  //
+  //     "a + b = %(a) + %(b)"
+  //
+  // is roughly compiled as a sequence of add operations on the tokens:
+  // TOK_INTERPOLATION ("a + b = ")
+  // TOK_IDENT         (a)
+  // TOK_INTERPOLATION (" + ")
+  // TOK_IDENT         (b)
+  // TOK_STRING        ("")
+  TOK_INTERPOLATION,
   TOK_NEWLINE,
 
   // Keywords

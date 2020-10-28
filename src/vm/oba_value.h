@@ -83,6 +83,12 @@ typedef struct {
 } ValueArray;
 
 typedef struct {
+  int capacity;
+  int count;
+  uint8_t* bytes;
+} ByteBuffer;
+
+typedef struct {
   Obj obj;
   int length;
   char* chars;
@@ -123,14 +129,15 @@ static inline bool isObjType(Value value, ObjType type) {
 }
 
 void initValueArray(ValueArray*);
-
-// Frees the memory held by a [ValueArray] previously allocate with
-// [initValueArray].
 void freeValueArray(ValueArray*);
-
-// Writes a byte to the given [ValueArray], allocating if necessary.
 void writeValueArray(ValueArray*, Value);
+
+void initByteBuffer(ByteBuffer*);
+void freeByteBuffer(ByteBuffer*);
+void writeByteBuffer(ByteBuffer*, uint8_t);
+
 bool valuesEqual(Value a, Value b);
+ObjString* formatValue(ObaVM* vm, Value value);
 void printValue(Value value);
 bool canAssignType(Value, Value);
 const char* valueTypeName(Value);

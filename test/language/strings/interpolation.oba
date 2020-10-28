@@ -1,0 +1,12 @@
+let a = 1
+debug "%(a)" // expect: 1
+
+let b = 2
+debug "%(a) + %(b)" // expect: 1 + 2
+debug "%(a) + %(b) = %(a + b)" // expect: 1 + 2 = 3
+
+// Interpolations can span multiple lines
+debug "%(a) + %(b) = %(
+a + b
+)"
+// expect: 1 + 2 = 3
