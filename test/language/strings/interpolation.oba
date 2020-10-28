@@ -5,9 +5,8 @@ let b = 2
 debug "%(a) + %(b)" // expect: 1 + 2
 debug "%(a) + %(b) = %(a + b)" // expect: 1 + 2 = 3
 
-debug "Interpolations can span multiple lines %(
-  a
+// Interpolations can span multiple lines
+debug "%(a) + %(b) = %(
+a + b
 )"
-
-// expect: Interpolations can span multiple lines 1
-
+// expect: 1 + 2 = 3
