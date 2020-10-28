@@ -46,13 +46,13 @@ Value readLineNative(ObaVM* vm, int argc, Value* argv) {
 Value formatNative(ObaVM* vm, int argc, Value* argv) {
   switch (argc) {
   case 0:
-      return OBJ_VAL(takeString(vm, "", 0));
+    return OBJ_VAL(takeString(vm, "", 0));
   case 1:
   default:
-      // This should error if we have more than one arg but we don't have error
-      // reporting yet.
-      return OBJ_VAL(formatValue(vm, argv[0]));
-  } 
+    // This should error if we have more than one arg but we don't have error
+    // reporting yet.
+    return OBJ_VAL(formatValue(vm, argv[0]));
+  }
 }
 
 Value printNative(ObaVM* vm, int argc, Value* argv) {

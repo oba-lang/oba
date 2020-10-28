@@ -12,7 +12,8 @@ ObjString* formatFunction(ObaVM* vm, ObjFunction* function) {
   int length = 0;
 
   if (function->name != NULL) {
-    length = sprintf(buf,"<fn %s::%s>", function->module->name->chars, function->name->chars);
+    length = sprintf(buf, "<fn %s::%s>", function->module->name->chars,
+                     function->name->chars);
     return copyString(vm, buf, length);
   } else {
     return copyString(vm, "<fn>", 4);
@@ -315,10 +316,11 @@ bool valuesEqual(Value a, Value b) {
 ObjString* formatValue(ObaVM* vm, Value value) {
   char buf[1024];
   int length = 0;
-  
+
   switch (value.type) {
   case VAL_NUMBER:
     length = sprintf(buf, "%g", AS_NUMBER(value));
+    buf[length] = '\0';
     return copyString(vm, buf, length);
   case VAL_BOOL:
     length = sprintf(buf, AS_BOOL(value) ? "true" : "false");

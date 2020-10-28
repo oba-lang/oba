@@ -207,7 +207,7 @@ static void concatenate(ObaVM* vm) {
   ObjString* b = AS_STRING(pop(vm));
   ObjString* a = AS_STRING(pop(vm));
 
-  char* chars = ALLOCATE(char, b->length + a->length);
+  char* chars = ALLOCATE(char, b->length + a->length + 1);
   int length = b->length + a->length;
 
   memcpy(chars, a->chars, a->length);
@@ -561,7 +561,7 @@ do {                                                                           \
       DISPATCH();
     }
 
-    CASE_OP(STRING): {
+    CASE_OP(STRING) : {
       ObjString* string = formatValue(vm, pop(vm));
       push(vm, OBJ_VAL(string));
       DISPATCH();

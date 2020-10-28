@@ -55,6 +55,9 @@ typedef struct {
   // Code is not executed if this is true.
   bool hasError;
 
+  // Whether the lexer is currently inside an interpolated expression.
+  bool isInterpolating;
+
   const char* tokenStart;
   const char* currentChar;
   const char* source;
@@ -131,7 +134,7 @@ static void infixOp(Compiler*, bool);
 static void identifier(Compiler*, bool);
 static void member(Compiler*, bool);
 static void literal(Compiler*, bool);
-static void string(Compiler*, bool);
+static void interpolation(Compiler*, bool);
 static void matchExpr(Compiler*, bool);
 static void declaration(Compiler*);
 
@@ -377,42 +380,43 @@ typedef struct {
 #define INFIX_OPERATOR(prec, name) { NULL, infixOp, prec, name }
 
 GrammarRule rules[] =  {
-  /* TOK_NOT       */ PREFIX(unaryOp),
-  /* TOK_ASSIGN    */ INFIX_OPERATOR(PREC_ASSIGN, "="),
-  /* TOK_GT        */ INFIX_OPERATOR(PREC_COND, ">"),
-  /* TOK_LT        */ INFIX_OPERATOR(PREC_COND, "<"),
-  /* TOK_GTE       */ INFIX_OPERATOR(PREC_COND, ">="),
-  /* TOK_LTE       */ INFIX_OPERATOR(PREC_COND, "<="),
-  /* TOK_EQ        */ INFIX_OPERATOR(PREC_COND, "=="),
-  /* TOK_NEQ       */ INFIX_OPERATOR(PREC_COND, "!="),
-  /* TOK_COMMA     */ UNUSED,
-  /* TOK_SEMICOLON */ UNUSED,
-  /* TOK_GUARD     */ UNUSED,
-  /* TOK_LPAREN    */ PREFIX(grouping),  
-  /* TOK_RPAREN    */ UNUSED, 
-  /* TOK_LBRACK    */ UNUSED,  
-  /* TOK_RBRACK    */ UNUSED, 
-  /* TOK_PLUS      */ INFIX_OPERATOR(PREC_SUM, "+"),
-  /* TOK_MINUS     */ INFIX_OPERATOR(PREC_SUM, "-"),
-  /* TOK_MULTIPLY  */ INFIX_OPERATOR(PREC_PRODUCT, "*"),
-  /* TOK_DIVIDE    */ INFIX_OPERATOR(PREC_PRODUCT, "/"),
-  /* TOK_MEMBER    */ INFIX(PREC_MEMBER, member),
-  /* TOK_IDENT     */ PREFIX(identifier),
-  /* TOK_NUMBER    */ PREFIX(literal),
-  /* TOK_STRING    */ PREFIX(string),
-  /* TOK_NEWLINE   */ UNUSED, 
-  /* TOK_DEBUG     */ UNUSED,
-  /* TOK_LET       */ UNUSED,
-  /* TOK_TRUE      */ PREFIX(literal),
-  /* TOK_FALSE     */ PREFIX(literal),
-  /* TOK_IF        */ UNUSED,  
-  /* TOK_ELSE      */ UNUSED,  
-  /* TOK_WHILE     */ UNUSED,  
-  /* TOK_MATCH     */ PREFIX(matchExpr),
-  /* TOK_FN        */ UNUSED,
-  /* TOK_IMPORT    */ UNUSED,
-  /* TOK_ERROR     */ UNUSED,  
-  /* TOK_EOF       */ UNUSED,
+  /* TOK_NOT           */ PREFIX(unaryOp),
+  /* TOK_ASSIGN        */ INFIX_OPERATOR(PREC_ASSIGN, "="),
+  /* TOK_GT            */ INFIX_OPERATOR(PREC_COND, ">"),
+  /* TOK_LT            */ INFIX_OPERATOR(PREC_COND, "<"),
+  /* TOK_GTE           */ INFIX_OPERATOR(PREC_COND, ">="),
+  /* TOK_LTE           */ INFIX_OPERATOR(PREC_COND, "<="),
+  /* TOK_EQ            */ INFIX_OPERATOR(PREC_COND, "=="),
+  /* TOK_NEQ           */ INFIX_OPERATOR(PREC_COND, "!="),
+  /* TOK_COMMA         */ UNUSED,
+  /* TOK_SEMICOLON     */ UNUSED,
+  /* TOK_GUARD         */ UNUSED,
+  /* TOK_LPAREN        */ PREFIX(grouping),  
+  /* TOK_RPAREN        */ UNUSED, 
+  /* TOK_LBRACK        */ UNUSED,  
+  /* TOK_RBRACK        */ UNUSED, 
+  /* TOK_PLUS          */ INFIX_OPERATOR(PREC_SUM, "+"),
+  /* TOK_MINUS         */ INFIX_OPERATOR(PREC_SUM, "-"),
+  /* TOK_MULTIPLY      */ INFIX_OPERATOR(PREC_PRODUCT, "*"),
+  /* TOK_DIVIDE        */ INFIX_OPERATOR(PREC_PRODUCT, "/"),
+  /* TOK_MEMBER        */ INFIX(PREC_MEMBER, member),
+  /* TOK_IDENT         */ PREFIX(identifier),
+  /* TOK_NUMBER        */ PREFIX(literal),
+  /* TOK_STRING        */ PREFIX(literal),
+  /* TOK_INTERPOLATION */ PREFIX(interpolation),
+  /* TOK_NEWLINE       */ UNUSED, 
+  /* TOK_DEBUG         */ UNUSED,
+  /* TOK_LET           */ UNUSED,
+  /* TOK_TRUE          */ PREFIX(literal),
+  /* TOK_FALSE         */ PREFIX(literal),
+  /* TOK_IF            */ UNUSED,  
+  /* TOK_ELSE          */ UNUSED,  
+  /* TOK_WHILE         */ UNUSED,  
+  /* TOK_MATCH         */ PREFIX(matchExpr),
+  /* TOK_FN            */ UNUSED,
+  /* TOK_IMPORT        */ UNUSED,
+  /* TOK_ERROR         */ UNUSED,  
+  /* TOK_EOF           */ UNUSED,
 };
 
 // Gets the [GrammarRule] associated with tokens of [type].
@@ -486,19 +490,47 @@ static void makeNumber(Compiler* compiler) {
   makeToken(compiler, TOK_NUMBER);
 }
 
-static void makeString(Compiler* compiler) { makeToken(compiler, TOK_STRING); }
-
 static bool isName(char c) { return isalpha(c) || c == '_'; }
 
 static bool isNumber(char c) { return isdigit(c); }
 
 // Finishes lexing a string.
 static void readString(Compiler* compiler) {
-  while (peekChar(compiler) != '"') {
-    nextChar(compiler);
+  TokenType type = TOK_STRING;
+
+  // Number of chars to remove from the tokens tring.
+  // -2 removes the trailing '"'.
+  int end = -2;
+
+  for (;;) {
+    char c = nextChar(compiler);
+    if (c == '"')
+      break;
+
+    if (c == '\0') {
+      lexError(compiler, "Unterminated string.");
+      compiler->parser->currentChar--;
+      break;
+    }
+
+    if (c == '%') {
+      if (nextChar(compiler) != '(') {
+        lexError(compiler, "Expected '(' after '%%'.");
+      }
+      compiler->parser->isInterpolating = true;
+      type = TOK_INTERPOLATION;
+      // Remove the trailing '%(', since there is no trailing '"'
+      end = -3;
+      break;
+    }
   }
-  nextChar(compiler);
-  makeString(compiler);
+
+  makeToken(compiler, type);
+
+  Value string =
+      OBJ_VAL(copyString(compiler->vm, compiler->parser->current.start + 1,
+                         compiler->parser->current.length + end));
+  compiler->parser->current.value = string;
 }
 
 // Finishes lexing an identifier.
@@ -570,9 +602,16 @@ static void nextToken(Compiler* compiler) {
     case '(':
       makeToken(compiler, TOK_LPAREN);
       return;
-    case ')':
+    case ')': {
+      if (compiler->parser->isInterpolating) {
+        // This is the end of an interpolated expression.
+        compiler->parser->isInterpolating = false;
+        readString(compiler);
+        return;
+      }
       makeToken(compiler, TOK_RPAREN);
       return;
+    }
     case '{':
       makeToken(compiler, TOK_LBRACK);
       return;
@@ -898,11 +937,34 @@ static void grouping(Compiler* compiler, bool canAssign) {
   consume(compiler, TOK_RPAREN, "Expected ')' after expression.");
 }
 
-static void string(Compiler* compiler, bool canAssign) {
-  // +1 and -2 to omit the leading and traling '"'.
-  emitConstant(compiler, OBJ_VAL(copyString(
-                             compiler->vm, compiler->parser->previous.start + 1,
-                             compiler->parser->previous.length - 2)));
+static void interpolation(Compiler* compiler, bool canAssign) {
+  bool first = true;
+  do {
+    // The opening string.
+    literal(compiler, false);
+    ignoreNewlines(compiler);
+
+    // The interpolated expression.
+    expression(compiler);
+    ignoreNewlines(compiler);
+
+    // Convert the expression result to a string and add it to the previous
+    // string literal.
+    emitOp(compiler, OP_STRING);
+    emitOp(compiler, OP_ADD);
+
+    // If this is not the first set of TOK_INTERPOLATION + TOK_EXPRESSION then
+    // add it to the previous one.
+    if (!first) {
+      emitOp(compiler, OP_ADD);
+    }
+    first = false;
+  } while (match(compiler, TOK_INTERPOLATION));
+
+  // The trailing string.
+  consume(compiler, TOK_STRING, "Expect end of string interpolation.");
+  literal(compiler, false);
+  emitOp(compiler, OP_ADD);
 }
 
 static void variable(Compiler* compiler, bool canAssign) {
@@ -997,8 +1059,7 @@ static void pattern(Compiler* compiler) {
     emitConstant(compiler, token.value);
     break;
   case TOK_STRING:
-    emitConstant(compiler, OBJ_VAL(copyString(compiler->vm, token.start + 1,
-                                              token.length - 2)));
+    emitConstant(compiler, token.value);
     break;
   case TOK_IDENT:
     variable(compiler, false);
@@ -1060,6 +1121,8 @@ static void literal(Compiler* compiler, bool canAssign) {
     emitBool(compiler, OBA_BOOL(false));
     break;
   case TOK_NUMBER:
+  case TOK_STRING:
+  case TOK_INTERPOLATION:
     emitConstant(compiler, compiler->parser->previous.value);
     break;
   default:
@@ -1178,6 +1241,7 @@ ObjFunction* compile(ObaVM* vm, ObjModule* module, const char* source,
   parser.current.length = 0;
   parser.current.line = 0;
   parser.hasError = false;
+  parser.isInterpolating = false;
 
   Compiler compiler;
   initCompiler(vm, &compiler, &parser, parent);
