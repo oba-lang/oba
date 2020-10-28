@@ -43,7 +43,7 @@ Value readLineNative(ObaVM* vm, int argc, Value* argv) {
   return value;
 }
 
-Value formatNative(ObaVM* vm, int argc, Value* argv) {
+Value toStringNative(ObaVM* vm, int argc, Value* argv) {
   switch (argc) {
   case 0:
     return OBJ_VAL(takeString(vm, "", 0));
@@ -77,7 +77,7 @@ Builtin __builtins__[] = {
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
     {"isNil", &isNilNative},
-    {"format", &formatNative},
+    {"toString", &toStringNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 

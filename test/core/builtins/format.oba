@@ -1,7 +1,0 @@
-debug format(1) // expect: 1
-debug format(2) // expect: 2
-debug format("hello") // expect: hello
-debug format(true) // expect: true
-debug format(false) // expect: false
-debug format(1) + " + " + format(2) + " = 3" // expect: 1 + 2 = 3
-
