@@ -98,6 +98,22 @@ static bool callNative(ObaVM* vm, NativeFn native, int arity) {
   return true;
 }
 
+static bool callCtor(ObaVM* vm, ObjCtor* ctor, int arity) {
+  if (arity != ctor->arity) {
+    runtimeError(vm, "Expected %d arguments but got %d", ctor->arity, arity);
+    return false;
+  }
+
+  ObjInstance* instance = newInstance(vm, ctor);
+  for (int i = 0; i < ctor->arity; i++) {
+    instance->fields[ctor->arity - i - 1] = pop(vm);
+  }
+
+  pop(vm);
+  push(vm, OBJ_VAL(instance));
+  return true;
+}
+
 static bool callValue(ObaVM* vm, Value value, int arity) {
   if (IS_OBJ(value)) {
     switch (OBJ_TYPE(value)) {
@@ -105,6 +121,8 @@ static bool callValue(ObaVM* vm, Value value, int arity) {
       return call(vm, AS_CLOSURE(value), arity);
     case OBJ_NATIVE:
       return callNative(vm, AS_NATIVE(value), arity);
+    case OBJ_CTOR:
+      return callCtor(vm, AS_CTOR(value), arity);
     default:
       // Non-callable
       break;

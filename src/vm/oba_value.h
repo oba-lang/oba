@@ -54,6 +54,7 @@ typedef enum {
   OBJ_UPVALUE,
   OBJ_MODULE,
   OBJ_CTOR,
+  OBJ_INSTANCE,
 } ObjType;
 
 typedef struct Obj {
@@ -134,6 +135,12 @@ typedef struct {
   int arity;
 } ObjCtor;
 
+typedef struct {
+  Obj obj;
+  ObjCtor* ctor;
+  Value* fields;
+} ObjInstance;
+
 static inline bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
@@ -164,6 +171,7 @@ ObjNative* newNative(ObaVM*, NativeFn);
 ObjModule* newModule(ObaVM* vm, ObjString* name);
 
 ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity);
+ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor);
 
 void initTable(Table* table);
 void freeTable(Table* table);

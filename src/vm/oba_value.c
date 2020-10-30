@@ -120,6 +120,10 @@ ObjString* formatObject(ObaVM* vm, Value value) {
   }
 }
 
+void printCtor(ObjCtor* ctor) {
+  printf("%s::%s", ctor->family->chars, ctor->name->chars);
+}
+
 void printObject(Value value) {
   Obj* obj = AS_OBJ(value);
   switch (obj->type) {
@@ -144,9 +148,25 @@ void printObject(Value value) {
     break;
   }
   case OBJ_CTOR: {
-    ObjCtor* ctor = (ObjCtor*)obj;
-    printf("%s::%s", ctor->family->chars, ctor->name->chars);
+    printCtor(AS_CTOR(value));
     break;
+  }
+  case OBJ_INSTANCE: {
+    ObjInstance* instance = (ObjInstance*)obj;
+    printf("(");
+    printCtor(instance->ctor);
+
+    int fields = instance->ctor->arity;
+    if (fields > 0) {
+      printf(",");
+      for (int i = 0; i < fields; i++) {
+        printValue(instance->fields[i]);
+        if (i + 1 < fields) {
+          printf(",");
+        }
+      }
+    }
+    printf(")");
   }
   default:
     break; // Unreachable
@@ -305,6 +325,13 @@ ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity) {
   ctor->name = name;
   ctor->arity = arity;
   return ctor;
+}
+
+ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor) {
+  ObjInstance* instance = ALLOCATE_OBJ(vm, ObjInstance, OBJ_INSTANCE);
+  instance->ctor = ctor;
+  instance->fields = ALLOCATE(Value, ctor->arity);
+  return instance;
 }
 
 bool objectsEqual(Value ao, Value bo) {
