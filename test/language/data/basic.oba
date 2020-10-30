@@ -1,0 +1,3 @@
+data Foo = Bar
+
+debug Bar // expect: Foo::Bar

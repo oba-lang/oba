@@ -61,6 +61,7 @@ typedef enum {
   TOK_MATCH,
   TOK_FN,
   TOK_IMPORT,
+  TOK_DATA,
 
   TOK_ERROR,
   TOK_EOF,

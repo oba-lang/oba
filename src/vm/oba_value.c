@@ -143,6 +143,11 @@ void printObject(Value value) {
     printf("<module %s>", module->name->chars);
     break;
   }
+  case OBJ_CTOR: {
+    ObjCtor* ctor = (ObjCtor*)obj;
+    printf("%s::%s", ctor->family->chars, ctor->name->chars);
+    break;
+  }
   default:
     break; // Unreachable
   }
@@ -292,6 +297,14 @@ ObjModule* newModule(ObaVM* vm, ObjString* name) {
   module->variables = (Table*)reallocate(NULL, 0, sizeof(Table));
   initTable(module->variables);
   return module;
+}
+
+ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity) {
+  ObjCtor* ctor = ALLOCATE_OBJ(vm, ObjCtor, OBJ_CTOR);
+  ctor->family = family;
+  ctor->name = name;
+  ctor->arity = arity;
+  return ctor;
 }
 
 bool objectsEqual(Value ao, Value bo) {
