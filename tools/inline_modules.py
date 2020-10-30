@@ -10,6 +10,7 @@ def transform_source_code(filename, lines):
     output = [
         "// Generated automatically from %s. Do not edit." % filename,
         "const char* %sModSource =" % mod_name,
+        "",
     ] + ['"%s\\n"' % line.rstrip() for line in lines]
     output[-1] += ";"
     return output
