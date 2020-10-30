@@ -141,8 +141,10 @@ below:
 ## Grammar
 
 ```
-declaration   = import
+declaration   = data
               | statement
+              | import
+data          | 'data' IDENT '=' constructor ('|' constructor)*
 import        = 'import' STRING
 statement     = functionDefn
               | variableDecl
@@ -151,6 +153,7 @@ statement     = functionDefn
               | ifStmt
               | whileStmt
               | expression
+constructor   | IDENT+
 functionDefn  = 'fn' IDENT parameterList functionBody
 variableDecl  = 'let' IDENT '=' expression
 debugStmt     = 'debug' expression
@@ -168,10 +171,10 @@ TERM          = IDENT
               | NUMBER
               | STRING
               | functionCall
+functionCall  = IDENT '(' (expression ','?)* ')'
 IDENT         = ([a-zA-Z_][a-zA-Z_0-9]*) ('::' IDENT)*
 STRING        = '"' [^'"']* '"'
 NUMBER        = [0-9]+
-functionCall  = IDENT '(' (expression ','?)* ')'
 PREFIX_OP     = '!'
 INIFIX_OP     = '+' '-' '*' '/'
 
