@@ -133,6 +133,29 @@ static bool callValue(ObaVM* vm, Value value, int arity) {
   return false;
 }
 
+static bool match(ObaVM* vm, Value pattern, Value value) {
+  if (IS_CTOR(pattern) && IS_INSTANCE(value)) {
+    ObjCtor* ctor = AS_CTOR(pattern);
+    ObjInstance* instance = AS_INSTANCE(value);
+    return ctor == instance->ctor;
+  } else {
+    return valuesEqual(pattern, value);
+  }
+}
+
+static void destructure(ObaVM* vm, Value pattern, Value value) {
+  if (!IS_CTOR(pattern)) {
+    // pattern and value are matching literals. there is nothing to destructure.
+    return;
+  }
+
+  ObjCtor* ctor = AS_CTOR(pattern);
+  ObjInstance* instance = AS_INSTANCE(value);
+  for (int i = 0; i < instance->ctor->arity; i++) {
+    push(vm, instance->fields[i]);
+  }
+}
+
 // Captures the local value in an upvalue.
 // If an existing upvalue already closes over the local, it is returned.
 // Otherwise a new one is created.
@@ -477,13 +500,18 @@ do {                                                                           \
 
     CASE_OP(JUMP_IF_NOT_MATCH) : {
       int jump = READ_SHORT();
-      Value a = peek(vm, 2);
-      Value b = pop(vm);
-      if (!valuesEqual(b, a)) {
+      Value lambda = pop(vm);
+      Value pattern = pop(vm);
+      Value value = peek(vm, 1);
+
+      if (!match(vm, pattern, value)) {
         vm->frame->ip += jump;
         DISPATCH();
       }
-      pop(vm);
+
+      pop(vm); // Pop `value` off the stack.
+      push(vm, lambda);
+      destructure(vm, pattern, value);
       DISPATCH();
     }
 
@@ -635,8 +663,10 @@ do {                                                                           \
     }
 
     CASE_OP(END_MODULE) : {
+      // Don't pop the root module or we'll never reach OP_EXIT.
       if (vm->frame - vm->frames > 1) {
         return_(vm);
+        pop(vm);
       }
       DISPATCH();
     }

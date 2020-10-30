@@ -179,7 +179,7 @@ static void emitError(Compiler* compiler, const char* format, ...) {
   va_start(args, format);
   char message[MAX_ERROR_SIZE];
   int length = vsprintf(message, format, args);
-  ASSERT(length > MAX_ERROR_SIZE, "Error message should not exceed buffer");
+  ASSERT(length < MAX_ERROR_SIZE, "Error message should not exceed buffer");
 
   Value error = OBJ_VAL(copyString(compiler->vm, message, length));
   emitOp(compiler, OP_ERROR);
@@ -919,6 +919,32 @@ static void parameterList(Compiler* compiler) {
   }
 }
 
+// TODO(kendal): Dedup this with function definition.
+static int lambda(Compiler* compiler) {
+  Compiler fnCompiler;
+  initCompiler(compiler->vm, &fnCompiler, compiler->parser, compiler);
+
+  enterScope(&fnCompiler);
+  parameterList(&fnCompiler);
+  ignoreNewlines(&fnCompiler);
+  consume(&fnCompiler, TOK_ASSIGN, "Missing lambda expression");
+  expression(&fnCompiler);
+
+  ObjFunction* fn = endCompiler(&fnCompiler, "", 0);
+  if (fn == NULL)
+    return -1;
+
+  emitOp(compiler, OP_CLOSURE);
+  emitByte(compiler, addConstant(compiler, OBJ_VAL(fn)));
+
+  for (int i = 0; i < fn->upvalueCount; i++) {
+    emitByte(compiler, fnCompiler.upvalues[i].isLocal ? 1 : 0);
+    emitByte(compiler, fnCompiler.upvalues[i].index);
+  }
+
+  return fn->arity;
+}
+
 static void functionDefinition(Compiler* compiler) {
   if (!match(compiler, TOK_IDENT)) {
     error(compiler, "Expected an identifier");
@@ -964,6 +990,11 @@ static void statement(Compiler* compiler) {
     whileStmt(compiler);
   } else {
     expression(compiler);
+    // TODO(kendal): Add a return-statement and just always pop the result of an
+    // expression statement.
+    if (compiler->currentDepth == 0) {
+      emitOp(compiler, OP_POP);
+    }
   }
 }
 
@@ -1130,35 +1161,38 @@ static void pattern(Compiler* compiler) {
   }
 }
 
-static void matchExprCase(Compiler* compiler) {
+static void equation(Compiler* compiler) {
   pattern(compiler);
 
-  int skipThisCase = emitJump(compiler, OP_JUMP_IF_NOT_MATCH);
+  // Compile the RHS lambda expression, which only gets evaluated if the pattern
+  // above matched.
+  int arity = lambda(compiler);
 
-  if (!match(compiler, TOK_ASSIGN)) {
-    error(compiler, "Expected '=' after pattern");
-    return;
-  }
+  int skipThisEquation = emitJump(compiler, OP_JUMP_IF_NOT_MATCH);
 
-  // Compile the body, which only gets evaluated if the pattern above matched.
-  expression(compiler);
+  // The lambda's arguments are already in the correct stack slots if the
+  // pattern matched; call the lambda immediately.
+  emitOp(compiler, OP_CALL);
+  emitByte(compiler, arity);
 
-  int skipOtherCases = emitJump(compiler, OP_JUMP);
-  patchJump(compiler, skipThisCase);
+  int skipRemainingEquations = emitJump(compiler, OP_JUMP);
+  patchJump(compiler, skipThisEquation);
 
-  // Compile the remaining match expression cases.
+  // Compile the remaining equations.
   ignoreNewlines(compiler);
   if (match(compiler, TOK_GUARD)) {
-    matchExprCase(compiler);
+    equation(compiler);
   } else {
-    // This is the last expression case. Insert an error because the entire
-    // expression evaluates to nothing if this one is not matched.
+    // This is the last equation. Insert an error because the entire match
+    // evaluates to nothing if this one is not matched.
     emitError(compiler, "Match expression evaluated to nothing");
   }
 
-  patchJump(compiler, skipOtherCases);
+  patchJump(compiler, skipRemainingEquations);
 }
 
+// TODO(kendal): Emit an error if there are constructor patterns in this match
+// expression, and some of the constructors in the family aren't handled.
 static void matchExpr(Compiler* compiler, bool canAssign) {
   // Compile the expression to push the value to match onto the stack.
   expression(compiler);
@@ -1169,7 +1203,7 @@ static void matchExpr(Compiler* compiler, bool canAssign) {
     return;
   }
 
-  matchExprCase(compiler);
+  equation(compiler);
   consume(compiler, TOK_SEMICOLON, "Expected ';'");
 }
 

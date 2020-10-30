@@ -25,6 +25,7 @@
 #define IS_UPVALUE(value) isObjType(value, OBJ_UPVALUE)
 #define IS_MODULE(value) isObjType(value, OBJ_MODULE)
 #define IS_CTOR(value) isObjType(value, OBJ_CTOR)
+#define IS_INSTANCE(value) isObjType(value, OBJ_INSTANCE)
 #define OBJ_TYPE(value) (AS_OBJ(value)->type)
 
 // Macros for converting from Oba to C.
@@ -39,6 +40,7 @@
 #define AS_UPVALUE(value) ((ObjUpvalue*)AS_OBJ(value))
 #define AS_MODULE(value) ((ObjModule*)AS_OBJ(value))
 #define AS_CTOR(value) ((ObjCtor*)AS_OBJ(value))
+#define AS_INSTANCE(value) ((ObjInstance*)AS_OBJ(value))
 
 // Singletions
 #define NIL_VAL ((Value){VAL_NIL, {0}})

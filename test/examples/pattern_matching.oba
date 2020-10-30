@@ -1,0 +1,57 @@
+import "system"
+
+// example: guides/language/pattern_matching literalPatterns
+match 1
+  | 1 = "one"
+  | 2 = "two"
+  ;
+// end example
+
+
+// example: guides/language/pattern_matching variablePatterns
+let x = 1
+
+match 1
+  | x = "one"
+  | 2 = "two"
+  ;
+// end example
+
+// example: guides/language/pattern_matching catchAllPattern
+let value = 3
+
+match value
+  | 1     = "one"
+  | 2     = "two"
+  | value = "big number" // catch-all
+  ;
+// end example
+
+// example: guides/language/pattern_matching constructorPatterns
+data Shape = Square length | Rectangle width height
+
+let shape = Rectangle(3, 4)
+
+let area = match shape
+   | Square l      = l * l
+   | Rectangle w h = w * h
+   ; 
+// end example
+system::print(area) // expect: 12
+
+{
+// example: guides/language/pattern_matching mixedPatterns
+  let value = Square(4)
+  let size = match value
+    | 1             = 1
+    | 2             = 2
+    | Square l      = l * l
+    | Rectangle w h = w * h
+    | value         = value
+    ;
+
+system::print(size) // Prints: 16
+// end example
+}
+// expect: 16
+

@@ -1,0 +1,15 @@
+data Option = None | Some v
+
+let none = None()
+let some = Some("one")
+
+debug match none
+  | None   = "none"
+  | Some s = s
+  ; // expect: none
+
+debug match some
+  | None   = "none"
+  | Some s = s
+  ; // expect: one
+

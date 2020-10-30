@@ -1,5 +1,5 @@
 ---
-title: "Data"
+title: "Data Types"
 date: 2020-10-30T10:23:58-04:00
 ---
 
@@ -41,3 +41,19 @@ fields that it contains:
 system::print(Motorcycle("Red")) // Prints: (Cycle::Motorcycle,Red)
 ```
 
+## Pattern Matching
+
+Data types can be used as patterns in `match` expressions:
+
+```
+let color = match motorcycle
+  | Bicycle          = "grey"
+  | Motorcycle color = color
+  ;
+
+system::print(color) // Prints: "Red"
+```
+
+For more information on pattern-matching, see [Pattern Matching].
+
+[Pattern Matching]: {{< relref path="pattern_matching.md" >}}
