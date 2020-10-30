@@ -24,6 +24,7 @@
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
 #define IS_UPVALUE(value) isObjType(value, OBJ_UPVALUE)
 #define IS_MODULE(value) isObjType(value, OBJ_MODULE)
+#define IS_CTOR(value) isObjType(value, OBJ_CTOR)
 #define OBJ_TYPE(value) (AS_OBJ(value)->type)
 
 // Macros for converting from Oba to C.
@@ -37,6 +38,7 @@
 #define AS_NATIVE(value) (((ObjNative*)AS_OBJ(value))->function)
 #define AS_UPVALUE(value) ((ObjUpvalue*)AS_OBJ(value))
 #define AS_MODULE(value) ((ObjModule*)AS_OBJ(value))
+#define AS_CTOR(value) ((ObjCtor*)AS_OBJ(value))
 
 // Singletions
 #define NIL_VAL ((Value){VAL_NIL, {0}})
@@ -51,6 +53,8 @@ typedef enum {
   OBJ_NATIVE,
   OBJ_UPVALUE,
   OBJ_MODULE,
+  OBJ_CTOR,
+  OBJ_INSTANCE,
 } ObjType;
 
 typedef struct Obj {
@@ -124,6 +128,19 @@ typedef struct {
   ObjString* name;
 } ObjModule;
 
+typedef struct {
+  Obj obj;
+  ObjString* family;
+  ObjString* name;
+  int arity;
+} ObjCtor;
+
+typedef struct {
+  Obj obj;
+  ObjCtor* ctor;
+  Value* fields;
+} ObjInstance;
+
 static inline bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
@@ -152,6 +169,9 @@ ObjString* takeString(ObaVM* vm, char* chars, int length);
 ObjNative* newNative(ObaVM*, NativeFn);
 
 ObjModule* newModule(ObaVM* vm, ObjString* name);
+
+ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity);
+ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor);
 
 void initTable(Table* table);
 void freeTable(Table* table);

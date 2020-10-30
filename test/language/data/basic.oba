@@ -1,0 +1,22 @@
+data Foo = Bar
+
+debug Bar // expect: Foo::Bar
+
+let bar = Bar()
+debug bar // expect: (Foo::Bar)
+
+
+// data type constructors can have parameters
+
+data Baz = Bang snap
+
+let baz = Bang(1)
+debug baz // expect: (Baz::Bang,1)
+
+// data types can have multiple constructors with different numbers parameters.
+data Cycle = Bicycle | Motorcycle sound topspeed
+
+let bike = Bicycle()
+let dirtbike = Motorcycle("vroom", 60)
+debug bike // expect: (Cycle::Bicycle)
+debug dirtbike // expect: (Cycle::Motorcycle,vroom,60)

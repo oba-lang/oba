@@ -416,6 +416,7 @@ GrammarRule rules[] =  {
   /* TOK_MATCH         */ PREFIX(matchExpr),
   /* TOK_FN            */ UNUSED,
   /* TOK_IMPORT        */ UNUSED,
+  /* TOK_DATA          */ UNUSED,
   /* TOK_ERROR         */ UNUSED,  
   /* TOK_EOF           */ UNUSED,
 };
@@ -432,6 +433,7 @@ typedef struct {
 } Keyword;
 
 static Keyword keywords[] = {
+    {"data",   4, TOK_DATA},
     {"debug",  5, TOK_DEBUG},
     {"false",  5, TOK_FALSE},
     {"let",    3, TOK_LET},
@@ -757,6 +759,40 @@ static void parse(Compiler* compiler, int precedence) {
 
 static void expression(Compiler* compiler) { parse(compiler, PREC_LOWEST); }
 
+static void constructor(Compiler* compiler, ObjString* family) {
+  consume(compiler, TOK_IDENT, "Expected an identifier");
+
+  Token nameToken = compiler->parser->previous;
+  ObjString* name = copyString(compiler->vm, nameToken.start, nameToken.length);
+  int variable = declareVariable(compiler, nameToken);
+
+  // constructor names are just for show, and may be used to indicated the
+  // expected type of a filed to readers. The only thing the VM keeps track of
+  // is the arity of the constructor.
+  int arity = 0;
+  while (match(compiler, TOK_IDENT))
+    arity++;
+
+  ObjCtor* ctor = newCtor(compiler->vm, family, name, arity);
+
+  // This always creates a global because data types can only be declared at
+  // the top-level.
+  emitConstant(compiler, OBJ_VAL(ctor));
+  defineVariable(compiler, variable);
+}
+
+static void data(Compiler* compiler) {
+  consume(compiler, TOK_IDENT, "Expected an identifier.");
+  ObjString* family = copyString(compiler->vm, compiler->parser->previous.start,
+                                 compiler->parser->previous.length);
+  consume(compiler, TOK_ASSIGN, "Expected '='");
+
+  do {
+    ignoreNewlines(compiler);
+    constructor(compiler, family);
+  } while (match(compiler, TOK_GUARD));
+}
+
 static void variableDeclaration(Compiler* compiler) {
   consume(compiler, TOK_IDENT, "Expected an identifier.");
   // Get the name, but don't declare it yet; A variable should not be in scope
@@ -802,7 +838,7 @@ static void blockStmt(Compiler* compiler) {
   ignoreNewlines(compiler);
 
   do {
-    declaration(compiler);
+    statement(compiler);
     ignoreNewlines(compiler);
   } while (peek(compiler) != TOK_RBRACK && peek(compiler) != TOK_EOF);
 
@@ -949,6 +985,8 @@ static void import(Compiler* compiler) {
 static void declaration(Compiler* compiler) {
   if (match(compiler, TOK_IMPORT)) {
     import(compiler);
+  } else if (match(compiler, TOK_DATA)) {
+    data(compiler);
   } else {
     statement(compiler);
   }

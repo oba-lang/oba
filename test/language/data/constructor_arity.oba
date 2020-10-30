@@ -1,0 +1,3 @@
+data Meal = Dinner protein vegetable
+
+let supper = Dinner("beef", "carrot", "milk") // expect runtime error: Expected 2 arguments but got 3
