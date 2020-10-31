@@ -1,0 +1,3 @@
+data Error = Error message
+
+panic(Error("failed")) // expect runtime error: (Error::Error,failed)

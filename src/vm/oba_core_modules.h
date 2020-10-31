@@ -7,4 +7,7 @@ const char* obaSystemModSource() { return systemModSource; }
 extern const char* timeModSource;
 const char* obaTimeModSource() { return timeModSource; }
 
+extern const char* optionModSource;
+const char* obaOptionModSource() { return optionModSource; }
+
 #endif

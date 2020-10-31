@@ -7,8 +7,25 @@
 #include "oba.h"
 #include "oba_core_modules.h"
 #include "oba_value.h"
+#include "oba_vm.h"
 
-// TODO(kendal): Support error reporting in natives.
+Value panicNative(ObaVM* vm, int argc, Value* argv) {
+  if (argc > 0) {
+    vm->error = argv[0];
+  } else {
+    vm->error = OBJ_VAL(copyString(vm, "panic", 5));
+  }
+  return NIL_VAL;
+}
+
+#define ASSERT_ARITY(vm, argc, arity)                                          \
+  do {                                                                         \
+    if ((argc) != (arity)) {                                                   \
+      obaArityError(vm, arity, argc);                                          \
+      return NIL_VAL;                                                          \
+    }                                                                          \
+  } while (0)
+
 Value sleepNative(ObaVM* vm, int argc, Value* argv) {
   // Assume argc == 1 and argv != NULL
   Value seconds = argv[0];
@@ -43,18 +60,6 @@ Value readLineNative(ObaVM* vm, int argc, Value* argv) {
   return value;
 }
 
-Value toStringNative(ObaVM* vm, int argc, Value* argv) {
-  switch (argc) {
-  case 0:
-    return OBJ_VAL(takeString(vm, "", 0));
-  case 1:
-  default:
-    // This should error if we have more than one arg but we don't have error
-    // reporting yet.
-    return OBJ_VAL(formatValue(vm, argv[0]));
-  }
-}
-
 Value printNative(ObaVM* vm, int argc, Value* argv) {
   if (argc > 0) {
     printValue(argv[0]);
@@ -70,6 +75,13 @@ Value isNilNative(ObaVM* vm, int argc, Value* argv) {
   return OBA_BOOL(argv[0].type == VAL_NIL);
 }
 
+Value toStringNative(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 1);
+  char buf[FORMAT_VALUE_MAX];
+  int length = formatValue(vm, buf, argv[0]);
+  return OBJ_VAL(copyString(vm, buf, length));
+}
+
 Builtin __builtins__[] = {
     {"__native_sleep", &sleepNative},
     {"__native_now", &nowNative},
@@ -78,6 +90,7 @@ Builtin __builtins__[] = {
     {"__native_print", &printNative},
     {"isNil", &isNilNative},
     {"toString", &toStringNative},
+    {"panic", &panicNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 
@@ -94,6 +107,7 @@ extern const char* timeModSource;
 CoreModule __core_modules__[] = {
     {"system", obaSystemModSource},
     {"time", obaTimeModSource},
+    {"option", obaOptionModSource},
     {NULL, NULL},
 };
 

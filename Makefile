@@ -6,6 +6,9 @@ ifeq ($(config),debug)
 			 ALL_CFLAGS += -g -DDEBUG_MODE -DDEBUG_TRACE_EXECUTION
 else ifeq ($(config),optimize)
 			 ALL_CFLAGS += -DOBA_COMPUTED_GOTO
+else ifeq ($(config),test)
+			 # Disable stack traces to simplify comparing error output.
+			 ALL_CFLAGS += -DDISABLE_STACK_TRACES
 else ifneq ($(config),release)
 		$(error "invalid configuration $(config)")
 endif
@@ -43,8 +46,9 @@ run: oba
 	@echo "==== Running oba ($(config)) ===="
 	./oba 
 
-test: oba
-	@echo "==== Testing oba ($(config)) ===="
+test:
+	@echo "==== Testing oba (test) ===="
+	make oba config=test
 	python3 tools/test.py
 
 help:

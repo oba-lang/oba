@@ -42,10 +42,13 @@
 #define AS_CTOR(value) ((ObjCtor*)AS_OBJ(value))
 #define AS_INSTANCE(value) ((ObjInstance*)AS_OBJ(value))
 
-// Singletions
 #define NIL_VAL ((Value){VAL_NIL, {0}})
 
 #define TABLE_MAX_LOAD 0.75
+
+// Maximum number of printable characters to use when formatting a Value.
+// TODO(kendal): Switch to using a growable buffer when formatting values.
+#define FORMAT_VALUE_MAX 1024
 
 // An Oba object in heap memory.
 typedef enum {
@@ -80,19 +83,6 @@ typedef struct {
     Obj* obj;
   } as;
 } Value;
-
-// ValueArray is a dynamic array of oba values.
-typedef struct {
-  int capacity;
-  int count;
-  Value* values;
-} ValueArray;
-
-typedef struct {
-  int capacity;
-  int count;
-  uint8_t* bytes;
-} ByteBuffer;
 
 typedef struct {
   Obj obj;
@@ -143,20 +133,49 @@ typedef struct {
   Value* fields;
 } ObjInstance;
 
+#define DECLARE_BUFFER(kind, type)                                             \
+  typedef struct {                                                             \
+    int capacity;                                                              \
+    int count;                                                                 \
+    type* values;                                                              \
+  } kind##Buffer;                                                              \
+                                                                               \
+  void init##kind##Buffer(kind##Buffer* buf);                                  \
+  void free##kind##Buffer(kind##Buffer*);                                      \
+  void write##kind##Buffer(kind##Buffer*, type);
+
+#define DEFINE_BUFFER(kind, type)                                              \
+  void init##kind##Buffer(kind##Buffer* buf) {                                 \
+    buf->capacity = 0;                                                         \
+    buf->count = 0;                                                            \
+    buf->values = NULL;                                                        \
+  }                                                                            \
+                                                                               \
+  void free##kind##Buffer(kind##Buffer* buf) {                                 \
+    FREE_ARRAY(type, buf->values, buf->capacity);                              \
+    init##kind##Buffer(buf);                                                   \
+  }                                                                            \
+                                                                               \
+  void write##kind##Buffer(kind##Buffer* buf, type value) {                    \
+    if (buf->capacity <= buf->count) {                                         \
+      int oldCap = buf->capacity;                                              \
+      buf->capacity = GROW_CAPACITY(oldCap);                                   \
+      buf->values = GROW_ARRAY(type, buf->values, oldCap, buf->capacity);      \
+    }                                                                          \
+    buf->values[buf->count] = value;                                           \
+    buf->count++;                                                              \
+  }
+
+DECLARE_BUFFER(Byte, uint8_t);
+DECLARE_BUFFER(Value, Value);
+DECLARE_BUFFER(String, ObjString*);
+
 static inline bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
 
-void initValueArray(ValueArray*);
-void freeValueArray(ValueArray*);
-void writeValueArray(ValueArray*, Value);
-
-void initByteBuffer(ByteBuffer*);
-void freeByteBuffer(ByteBuffer*);
-void writeByteBuffer(ByteBuffer*, uint8_t);
-
 bool valuesEqual(Value a, Value b);
-ObjString* formatValue(ObaVM* vm, Value value);
+int formatValue(ObaVM* vm, char*, Value value);
 void printValue(Value value);
 bool canAssignType(Value, Value);
 const char* valueTypeName(Value);

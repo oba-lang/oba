@@ -7,16 +7,12 @@
 #include "oba_value.h"
 #include "oba_vm.h"
 
-ObjString* formatFunction(ObaVM* vm, ObjFunction* function) {
-  char buf[1024];
-  int length = 0;
-
+int formatFunction(ObaVM* vm, char* buf, ObjFunction* function) {
   if (function->name != NULL) {
-    length = sprintf(buf, "<fn %s::%s>", function->module->name->chars,
-                     function->name->chars);
-    return copyString(vm, buf, length);
+    return sprintf(buf, "<fn %s::%s>", function->module->name->chars,
+                   function->name->chars);
   } else {
-    return copyString(vm, "<fn>", 4);
+    return sprintf(buf, "<fn>");
   }
 }
 
@@ -48,8 +44,7 @@ const char* objectTypeName(Value value) {
 }
 
 bool canAssignObjectType(Value oldValue, Value newValue) {
-  if (!IS_OBJ(newValue))
-    return false;
+  if (!IS_OBJ(newValue)) return false;
 
   switch (OBJ_TYPE(oldValue)) {
   case OBJ_CLOSURE:
@@ -91,32 +86,47 @@ const char* valueTypeName(Value value) {
   }
 }
 
-ObjString* formatValue(ObaVM*, Value);
-ObjString* formatObject(ObaVM* vm, Value value) {
+int formatValue(ObaVM*, char*, Value);
+int formatObject(ObaVM* vm, char* buf, Value value) {
   Obj* obj = AS_OBJ(value);
-
-  char buf[1024];
-  int length = 0;
 
   switch (obj->type) {
   case OBJ_CLOSURE:
-    return formatFunction(vm, AS_CLOSURE(value)->function);
+    return formatFunction(vm, buf, AS_CLOSURE(value)->function);
   case OBJ_FUNCTION:
-    return formatFunction(vm, AS_FUNCTION(value));
+    return formatFunction(vm, buf, AS_FUNCTION(value));
   case OBJ_STRING:
-    return AS_STRING(value);
+    return sprintf(buf, AS_CSTRING(value));
   case OBJ_NATIVE:
-    length = sprintf(buf, "<native fn>");
-    return copyString(vm, buf, length);
+    return sprintf(buf, "<native fn>");
   case OBJ_UPVALUE:
-    return formatValue(vm, *(AS_UPVALUE(value)->location));
+    return formatValue(vm, buf, *(AS_UPVALUE(value)->location));
   case OBJ_MODULE: {
     ObjModule* module = (ObjModule*)obj;
-    length = sprintf(buf, "<module %s>", module->name->chars);
-    return copyString(vm, buf, length);
+    return sprintf(buf, "<module %s>", module->name->chars);
+  }
+  case OBJ_INSTANCE: {
+    ObjInstance* instance = (ObjInstance*)obj;
+
+    int length = sprintf(buf, "(");
+    length += sprintf(buf + length, instance->ctor->family->chars);
+    length += sprintf(buf + length, "::");
+    length += sprintf(buf + length, instance->ctor->name->chars);
+
+    int fields = instance->ctor->arity;
+    if (fields > 0) {
+      length += sprintf(buf + length, ",");
+      for (int i = 0; i < fields; i++) {
+        length += formatValue(vm, buf + length, instance->fields[i]);
+        if (i + 1 < fields) {
+          length += sprintf(buf + length, ",");
+        }
+      }
+    }
+    return length + sprintf(buf + length, ")");
   }
   default:
-    return NULL; // Unreachable
+    return 0; // Unreachable
   }
 }
 
@@ -225,49 +235,9 @@ void freeObject(Obj* obj) {
   }
 }
 
-void initValueArray(ValueArray* array) {
-  array->capacity = 0;
-  array->count = 0;
-  array->values = NULL;
-}
-
-void freeValueArray(ValueArray* array) {
-  FREE_ARRAY(Value, array->values, array->capacity);
-  initValueArray(array);
-}
-
-void writeValueArray(ValueArray* array, Value value) {
-  if (array->capacity <= array->count) {
-    int oldCap = array->capacity;
-    array->capacity = GROW_CAPACITY(oldCap);
-    array->values = GROW_ARRAY(Value, array->values, oldCap, array->capacity);
-  }
-
-  array->values[array->count] = value;
-  array->count++;
-}
-
-void initByteBuffer(ByteBuffer* buf) {
-  buf->capacity = 0;
-  buf->count = 0;
-  buf->bytes = NULL;
-}
-
-void freeByteBuffer(ByteBuffer* buf) {
-  FREE_ARRAY(uint8_t, buf->bytes, buf->capacity);
-  initByteBuffer(buf);
-}
-
-void writeByteBuffer(ByteBuffer* buf, uint8_t value) {
-  if (buf->capacity <= buf->count) {
-    int oldCap = buf->capacity;
-    buf->capacity = GROW_CAPACITY(oldCap);
-    buf->bytes = GROW_ARRAY(uint8_t, buf->bytes, oldCap, buf->capacity);
-  }
-
-  buf->bytes[buf->count] = value;
-  buf->count++;
-}
+DEFINE_BUFFER(Byte, uint8_t)
+DEFINE_BUFFER(Value, Value)
+DEFINE_BUFFER(String, ObjString*)
 
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   ObjString* string = ALLOCATE_OBJ(vm, ObjString, OBJ_STRING);
@@ -335,8 +305,7 @@ ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor) {
 }
 
 bool objectsEqual(Value ao, Value bo) {
-  if (OBJ_TYPE(ao) != OBJ_TYPE(bo))
-    return false;
+  if (OBJ_TYPE(ao) != OBJ_TYPE(bo)) return false;
 
   switch (OBJ_TYPE(ao)) {
   case OBJ_STRING: {
@@ -360,8 +329,7 @@ bool objectsEqual(Value ao, Value bo) {
 }
 
 bool valuesEqual(Value a, Value b) {
-  if (a.type != b.type)
-    return false;
+  if (a.type != b.type) return false;
 
   switch (a.type) {
   case VAL_BOOL:
@@ -370,29 +338,25 @@ bool valuesEqual(Value a, Value b) {
     return AS_NUMBER(a) == AS_NUMBER(b);
   case VAL_OBJ:
     return objectsEqual(a, b);
+  case VAL_NIL:
+    return b.type == VAL_NIL;
   default:
     return false; // Unreachable.
   }
 }
 
-ObjString* formatValue(ObaVM* vm, Value value) {
-  char buf[1024];
-  int length = 0;
-
+int formatValue(ObaVM* vm, char* buf, Value value) {
   switch (value.type) {
   case VAL_NUMBER:
-    length = sprintf(buf, "%g", AS_NUMBER(value));
-    buf[length] = '\0';
-    return copyString(vm, buf, length);
+    return sprintf(buf, "%g", AS_NUMBER(value));
   case VAL_BOOL:
-    length = sprintf(buf, AS_BOOL(value) ? "true" : "false");
-    return copyString(vm, buf, length);
-  case VAL_OBJ:
-    return formatObject(vm, value);
+    return sprintf(buf, AS_BOOL(value) ? "true" : "false");
   case VAL_NIL:
-    return copyString(vm, "nil", 3);
+    return sprintf(buf, "nil");
+  case VAL_OBJ:
+    return formatObject(vm, buf, value);
   default:
-    return NULL; // Unreachable
+    return 0; // Unreachable
   }
 }
 
@@ -448,8 +412,7 @@ void adjustCapacity(Table* table, int capacity) {
 
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
-    if (entry->key == NULL)
-      continue;
+    if (entry->key == NULL) continue;
 
     Entry* dest = findEntry(entries, capacity, entry->key);
     dest->key = entry->key;
@@ -462,8 +425,7 @@ void adjustCapacity(Table* table, int capacity) {
 }
 
 bool tableGet(Table* table, ObjString* key, Value* value) {
-  if (table->count == 0)
-    return false;
+  if (table->count == 0) return false;
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL) {
@@ -483,8 +445,7 @@ bool tableSet(Table* table, ObjString* key, Value value) {
   Entry* entry = findEntry(table->entries, table->capacity, key);
 
   bool isNewKey = entry->key == NULL;
-  if (isNewKey)
-    table->count++;
+  if (isNewKey) table->count++;
 
   entry->key = key;
   entry->value = value;

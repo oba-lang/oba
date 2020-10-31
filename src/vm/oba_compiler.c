@@ -117,8 +117,7 @@ static void error(Compiler* compiler, const char* format, ...) {
   compiler->parser->hasError = true;
 
   // The lexer already reported this error.
-  if (compiler->parser->previous.type == TOK_ERROR)
-    return;
+  if (compiler->parser->previous.type == TOK_ERROR) return;
 
   va_list args;
   va_start(args, format);
@@ -145,7 +144,7 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
 // Bytecode -------------------------------------------------------------------
 
 static void emitByte(Compiler* compiler, int byte) {
-  writeChunk(&compiler->function->chunk, byte);
+  writeChunk(&compiler->function->chunk, byte, compiler->parser->currentLine);
 }
 
 static void emitOp(Compiler* compiler, OpCode code) {
@@ -155,7 +154,7 @@ static void emitOp(Compiler* compiler, OpCode code) {
 // Adds [value] the the Vm's constant pool.
 // Returns the address of the new constant within the pool.
 static int addConstant(Compiler* compiler, Value value) {
-  writeValueArray(&compiler->function->chunk.constants, value);
+  writeValueBuffer(&compiler->function->chunk.constants, value);
   return compiler->function->chunk.constants.count - 1;
 }
 
@@ -319,8 +318,7 @@ static int resolveLocal(Compiler* compiler, Token name) {
 // upvalue in each enclosing scope to optimize future resolution.
 static int resolveUpvalue(Compiler* compiler, Token name) {
   // There are no upvalues if this is the root function scope.
-  if (compiler->parent == NULL)
-    return -1;
+  if (compiler->parent == NULL) return -1;
 
   int local = resolveLocal(compiler->parent, name);
   if (local >= 0) {
@@ -458,14 +456,12 @@ static char peekChar(Compiler* compiler) {
 static char nextChar(Compiler* compiler) {
   char c = peekChar(compiler);
   compiler->parser->currentChar++;
-  if (c == '\n')
-    compiler->parser->currentLine++;
+  if (c == '\n') compiler->parser->currentLine++;
   return c;
 }
 
 static bool matchChar(Compiler* compiler, char c) {
-  if (peekChar(compiler) != c)
-    return false;
+  if (peekChar(compiler) != c) return false;
   nextChar(compiler);
   return true;
 }
@@ -483,8 +479,7 @@ static void makeToken(Compiler* compiler, TokenType type) {
   compiler->parser->current.line = compiler->parser->currentLine;
 
   // Make line tokens appear on the line containing the "\n".
-  if (type == TOK_NEWLINE)
-    compiler->parser->current.line--;
+  if (type == TOK_NEWLINE) compiler->parser->current.line--;
 }
 
 static void makeNumber(Compiler* compiler) {
@@ -506,8 +501,7 @@ static void readString(Compiler* compiler) {
 
   for (;;) {
     char c = nextChar(compiler);
-    if (c == '"')
-      break;
+    if (c == '"') break;
 
     if (c == '\0') {
       lexError(compiler, "Unterminated string.");
@@ -553,7 +547,7 @@ static void readString(Compiler* compiler) {
 
   makeToken(compiler, type);
 
-  Value string = OBJ_VAL(copyString(compiler->vm, buffer.bytes, buffer.count));
+  Value string = OBJ_VAL(copyString(compiler->vm, buffer.values, buffer.count));
   freeByteBuffer(&buffer);
   compiler->parser->current.value = string;
 }
@@ -593,8 +587,7 @@ static void skipLineComment(Compiler* compiler) {
 static void nextToken(Compiler* compiler) {
   compiler->parser->previous = compiler->parser->current;
 
-  if (compiler->parser->current.type == TOK_EOF)
-    return;
+  if (compiler->parser->current.type == TOK_EOF) return;
 
 #define IF_MATCH_NEXT(next, matched, unmatched)                                \
   do {                                                                         \
@@ -705,15 +698,13 @@ static void nextToken(Compiler* compiler) {
 
 // Returns true iff the next token has the [expected] Type.
 static bool match(Compiler* compiler, TokenType expected) {
-  if (peek(compiler) != expected)
-    return false;
+  if (peek(compiler) != expected) return false;
   nextToken(compiler);
   return true;
 }
 
 static bool matchLine(Compiler* compiler) {
-  if (!match(compiler, TOK_NEWLINE))
-    return false;
+  if (!match(compiler, TOK_NEWLINE)) return false;
   while (match(compiler, TOK_NEWLINE))
     ;
   return true;
@@ -931,8 +922,7 @@ static int lambda(Compiler* compiler) {
   expression(&fnCompiler);
 
   ObjFunction* fn = endCompiler(&fnCompiler, "", 0);
-  if (fn == NULL)
-    return -1;
+  if (fn == NULL) return -1;
 
   emitOp(compiler, OP_CLOSURE);
   emitByte(compiler, addConstant(compiler, OBJ_VAL(fn)));
@@ -962,8 +952,7 @@ static void functionDefinition(Compiler* compiler) {
   functionBody(&fnCompiler);
 
   ObjFunction* fn = endCompiler(&fnCompiler, name.start, name.length);
-  if (fn == NULL)
-    return;
+  if (fn == NULL) return;
 
   emitOp(compiler, OP_CLOSURE);
   emitByte(compiler, addConstant(compiler, OBJ_VAL(fn)));
@@ -1297,6 +1286,9 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
     return NULL;
   }
 
+  compiler->function->name =
+      copyString(compiler->vm, debugName, debugNameLength);
+
   if (compiler->parent == NULL) {
     emitOp(compiler, OP_END_MODULE);
   } else {
@@ -1305,10 +1297,7 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
     // TODO(kendal): Consider just keeping a stack of compilers on the VM,
     // which would also prevent us from having to fixup the VM's ip and frame
     // before executing the compiled code.
-    compiler->function->name =
-        copyString(compiler->vm, debugName, debugNameLength);
     compiler->parent->parser = compiler->parser;
-
     emitOp(compiler, OP_RETURN);
   }
 
@@ -1322,8 +1311,7 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
 ObjFunction* compile(ObaVM* vm, ObjModule* module, const char* source,
                      Compiler* parent, const char* name, int nameLength) {
   // Skip the UTF-8 BOM if there is one.
-  if (strncmp(source, "\xEF\xBB\xBF", 3) == 0)
-    source += 3;
+  if (strncmp(source, "\xEF\xBB\xBF", 3) == 0) source += 3;
 
   Parser parser;
   parser.module = module;

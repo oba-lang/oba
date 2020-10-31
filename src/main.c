@@ -45,8 +45,7 @@ static void repl(void) {
     printf(PROMPT);
     input = read();
     result = interpret(vm, input);
-    if (input != NULL)
-      free(input);
+    if (input != NULL) free(input);
   } while (!feof(stdin));
 
   printf("exiting. \n");
@@ -87,10 +86,8 @@ static void runFile(const char* filename) {
   free(source);
   obaFreeVM(vm);
 
-  if (result == OBA_RESULT_COMPILE_ERROR)
-    exit(EXIT_COMPILE_ERROR);
-  if (result == OBA_RESULT_RUNTIME_ERROR)
-    exit(EXIT_RUNTIME_ERROR);
+  if (result == OBA_RESULT_COMPILE_ERROR) exit(EXIT_COMPILE_ERROR);
+  if (result == OBA_RESULT_RUNTIME_ERROR) exit(EXIT_RUNTIME_ERROR);
 }
 
 int main(int argc, char** argv) {

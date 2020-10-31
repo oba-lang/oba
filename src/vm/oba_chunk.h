@@ -9,7 +9,8 @@ typedef struct {
   int capacity;
   int count;
   uint8_t* code;
-  ValueArray constants;
+  int* lines;
+  ValueBuffer constants;
 } Chunk;
 
 void initChunk(Chunk*);
@@ -18,6 +19,6 @@ void initChunk(Chunk*);
 void freeChunk(Chunk*);
 
 // Writes a byte to the given [Chunk], allocating if necessary.
-void writeChunk(Chunk*, uint8_t);
+void writeChunk(Chunk*, uint8_t, int);
 
 #endif

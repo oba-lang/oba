@@ -28,6 +28,10 @@ struct ObaVM {
   Table* modules;
   ObjUpvalue* openUpvalues;
   Obj* objects;
+
+  // Set by Oba code when a panic occurs. When set, the VM prints the error, a
+  // stacktrace, and exits on the next turn.
+  Value error;
 };
 
 typedef enum {
@@ -35,7 +39,5 @@ typedef enum {
 #include "oba_opcodes.h"
 #undef OPCODE
 } OpCode;
-
-void runtimeError(ObaVM* vm, const char* format, ...);
 
 #endif

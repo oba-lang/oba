@@ -14,6 +14,9 @@
 #include "oba_debug.h"
 #endif
 
+// The size of the buffer used to format error messages.
+#define MAX_ERROR_SIZE 1024
+
 // VM -------------------------------------------------------------------------
 
 static Value peek(ObaVM* vm, int lookahead) {
@@ -40,20 +43,48 @@ static void defineNative(ObaVM* vm, const char* name, NativeFn function) {
 
 static void resetStack(ObaVM* vm) { vm->stackTop = vm->stack; }
 
-void runtimeError(ObaVM* vm, const char* format, ...) {
+Value errorf(ObaVM* vm, const char* format, ...) {
+  char buf[MAX_ERROR_SIZE];
+
   va_list args;
   va_start(args, format);
-  fprintf(stderr, "Runtime error: ");
-  vfprintf(stderr, format, args);
+  int length = vsprintf(buf, format, args);
   va_end(args);
-  fputs("\n", stderr);
 
-  // TODO(kendal): Capture op line info
-  /*
-  size_t instruction = vm->frame->ip - vm->frame->closure->function->chunk.code
-  - 1; int line = vm->frame->closure->function->chunk.lines[instruction];
-  fprintf(stderr, "[line %d] in script\n", line);
-  */
+  return OBJ_VAL(copyString(vm, buf, length));
+}
+
+void obaTypeError(ObaVM* vm, const char* expected) {
+  vm->error = errorf(vm, "expected a %s value", expected);
+}
+
+void obaArityError(ObaVM* vm, int want, int got) {
+  char* arguments = "argument";
+  if (want > 1) arguments = "arguments";
+  vm->error = errorf(vm, "expected %d %s but got %d", want, arguments, got);
+}
+
+void runtimeError(ObaVM* vm) {
+  char buf[MAX_ERROR_SIZE];
+  int length = formatValue(vm, buf, vm->error);
+  fprintf(stderr, "Runtime error: %s\n", buf);
+
+#ifndef DISABLE_STACK_TRACES
+  CallFrame* frame;
+  for (frame = vm->frame; frame != vm->frames; frame--) {
+    ObjFunction* function = frame->closure->function;
+    size_t instruction = frame->ip - function->chunk.code - 1;
+    int line = function->chunk.lines[instruction];
+    fprintf(stderr, "[line %d] in ", line);
+    if (function == NULL) {
+      fprintf(stderr, "script\n");
+    } else {
+      fprintf(stderr, "%s::%s()\n", function->module->name->chars,
+              function->name->chars);
+    }
+  }
+#endif
+
   resetStack(vm);
 }
 
@@ -74,14 +105,13 @@ static void registerBuiltins(ObaVM* vm, Builtin* builtins, int builtinsLength) {
 
 static bool call(ObaVM* vm, ObjClosure* closure, int arity) {
   if (arity != closure->function->arity) {
-    runtimeError(vm, "Expected %d arguments but got %d",
-                 closure->function->arity, arity);
+    obaArityError(vm, closure->function->arity, arity);
     return false;
   }
 
   vm->frame++;
   if (vm->frame - vm->frames > FRAMES_MAX) {
-    runtimeError(vm, "Too many nested function calls");
+    vm->error = errorf(vm, "Too many nested function calls");
     return false;
   }
   vm->frame->closure = closure;
@@ -93,14 +123,14 @@ static bool call(ObaVM* vm, ObjClosure* closure, int arity) {
 static bool callNative(ObaVM* vm, NativeFn native, int arity) {
   Value result = native(vm, arity, vm->stackTop - arity);
   vm->stackTop -= arity;
-  pop(vm);
+  pop(vm); // native.
   push(vm, result);
-  return true;
+  return valuesEqual(vm->error, NIL_VAL);
 }
 
 static bool callCtor(ObaVM* vm, ObjCtor* ctor, int arity) {
   if (arity != ctor->arity) {
-    runtimeError(vm, "Expected %d arguments but got %d", ctor->arity, arity);
+    obaArityError(vm, ctor->arity, arity);
     return false;
   }
 
@@ -109,7 +139,7 @@ static bool callCtor(ObaVM* vm, ObjCtor* ctor, int arity) {
     instance->fields[ctor->arity - i - 1] = pop(vm);
   }
 
-  pop(vm);
+  pop(vm); // ctor.
   push(vm, OBJ_VAL(instance));
   return true;
 }
@@ -129,7 +159,7 @@ static bool callValue(ObaVM* vm, Value value, int arity) {
     }
   }
 
-  runtimeError(vm, "Can only call functions");
+  vm->error = errorf(vm, "Can only call functions");
   return false;
 }
 
@@ -228,8 +258,7 @@ static ObjClosure* importModule(ObaVM* vm, Value name) {
     module++;
   }
 
-  if (source == NULL)
-    return NULL;
+  if (source == NULL) return NULL;
 
   return compileInModule(vm, name, source);
 }
@@ -269,6 +298,7 @@ ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
   vm->openUpvalues = NULL;
   vm->objects = NULL;
   vm->frame = vm->frames;
+  vm->error = NIL_VAL;
 
   vm->globals = (Table*)realloc(NULL, sizeof(Table));
   initTable(vm->globals);
@@ -287,6 +317,8 @@ static void freeObjects(ObaVM* vm) {
   }
 }
 
+static bool obaHasError(ObaVM* vm) { return !valuesEqual(vm->error, NIL_VAL); }
+
 void obaFreeVM(ObaVM* vm) {
   // The closure is unset if an error occurred during compilation.
   if (vm->frame->closure != NULL) {
@@ -299,47 +331,49 @@ void obaFreeVM(ObaVM* vm) {
 
 static ObaInterpretResult run(ObaVM* vm) {
 
-  // clang-format off
+#define RUNTIME_ERROR()                                                        \
+  do {                                                                         \
+    runtimeError(vm);                                                          \
+    return OBA_RESULT_RUNTIME_ERROR;                                           \
+  } while (0)
 
 #define READ_BYTE() (*vm->frame->ip++)
 
-#define READ_SHORT() \
+#define READ_SHORT()                                                           \
   (vm->frame->ip += 2, (uint16_t)((vm->frame->ip[-2] << 8) | vm->frame->ip[-1]))
 
-#define READ_CONSTANT() \
+#define READ_CONSTANT()                                                        \
   (vm->frame->closure->function->chunk.constants.values[READ_BYTE()])
 
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 
 #define BINARY_OP(type, op)                                                    \
-do {                                                                           \
-  if (IS_NUMBER(peek(vm, 1)) && IS_NUMBER(peek(vm, 2))) {                      \
-    double b = AS_NUMBER(pop(vm));                                             \
-    double a = AS_NUMBER(pop(vm));                                             \
-    push(vm, type(a op b));                                                    \
-  } else {                                                                     \
-    runtimeError(vm, "Expected numeric or string operands");                   \
-    return OBA_RESULT_RUNTIME_ERROR;                                           \
-  }                                                                            \
-} while (0)
+  do {                                                                         \
+    if (IS_NUMBER(peek(vm, 1)) && IS_NUMBER(peek(vm, 2))) {                    \
+      double b = AS_NUMBER(pop(vm));                                           \
+      double a = AS_NUMBER(pop(vm));                                           \
+      push(vm, type(a op b));                                                  \
+    } else {                                                                   \
+      vm->error = errorf(vm, "Expected numeric or string operands");           \
+      RUNTIME_ERROR();                                                         \
+    }                                                                          \
+  } while (0)
 
-// Debug output
+  // Debug output
 
 #ifdef DEBUG_TRACE_EXECUTION
 
 #define DEBUG_TRACE_INSTRUCTIONS()                                             \
   disassembleInstruction(                                                      \
-        &vm->frame->closure->function->chunk,                                  \
-        (int)(vm->frame->ip - vm->frame->closure->function->chunk.code));      \
-    printf("          ");                                                      \
-    for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {               \
-      printf("[ ");                                                            \
-      printValue(*slot);                                                       \
-      printf(" ]");                                                            \
-    }                                                                          \
-    printf("\n");
-
-  // clang-format on
+      &vm->frame->closure->function->chunk,                                    \
+      (int)(vm->frame->ip - vm->frame->closure->function->chunk.code));        \
+  printf("          ");                                                        \
+  for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {                 \
+    printf("[ ");                                                              \
+    printValue(*slot);                                                         \
+    printf(" ]");                                                              \
+  }                                                                            \
+  printf("\n");
 
 #else
 
@@ -354,8 +388,9 @@ do {                                                                           \
 #define DISPATCH()                                                             \
   do {                                                                         \
     DEBUG_TRACE_INSTRUCTIONS();                                                \
+    if (obaHasError(vm)) RUNTIME_ERROR();                                      \
     goto* dispatchTable[READ_BYTE()];                                          \
-  } while (true)
+  } while (0)
 
 #define INTERPRET_LOOP DISPATCH();
 
@@ -377,6 +412,7 @@ do {                                                                           \
 #define INTERPRET_LOOP                                                         \
   loop:                                                                        \
   DEBUG_TRACE_INSTRUCTIONS();                                                  \
+  if (obaHasError(vm)) RUNTIME_ERROR();                                        \
   switch ((OpCode)READ_BYTE())
 
 #define DISPATCH() goto loop
@@ -391,8 +427,8 @@ do {                                                                           \
     }
 
     CASE_OP(ERROR) : {
-      runtimeError(vm, AS_CSTRING(READ_CONSTANT()));
-      return OBA_RESULT_RUNTIME_ERROR;
+      vm->error = errorf(vm, AS_CSTRING(READ_CONSTANT()));
+      RUNTIME_ERROR();
     }
 
     CASE_OP(ADD) : {
@@ -421,8 +457,8 @@ do {                                                                           \
 
     CASE_OP(NOT) : {
       if (!IS_BOOL(peek(vm, 1))) {
-        runtimeError(vm, "Expected boolean value");
-        return OBA_RESULT_RUNTIME_ERROR;
+        obaTypeError(vm, "boolean");
+        RUNTIME_ERROR();
       }
       push(vm, OBA_BOOL(!AS_BOOL(pop(vm))));
       DISPATCH();
@@ -479,25 +515,23 @@ do {                                                                           \
 
     CASE_OP(JUMP_IF_FALSE) : {
       if (!IS_BOOL(peek(vm, 1))) {
-        runtimeError(vm, "Expected a boolean expression");
-        return OBA_RESULT_RUNTIME_ERROR;
+        obaTypeError(vm, "boolean");
+        RUNTIME_ERROR();
       }
       int jump = READ_SHORT();
       bool cond = AS_BOOL(peek(vm, 1));
-      if (!cond)
-        vm->frame->ip += jump;
+      if (!cond) vm->frame->ip += jump;
       DISPATCH();
     }
 
     CASE_OP(JUMP_IF_TRUE) : {
       if (!IS_BOOL(peek(vm, 1))) {
-        runtimeError(vm, "Expected a boolean expression");
-        return OBA_RESULT_RUNTIME_ERROR;
+        obaTypeError(vm, "boolean");
+        RUNTIME_ERROR();
       }
       int jump = READ_SHORT();
       bool cond = AS_BOOL(peek(vm, 1));
-      if (cond)
-        vm->frame->ip += jump;
+      if (cond) vm->frame->ip += jump;
       DISPATCH();
     }
 
@@ -538,8 +572,8 @@ do {                                                                           \
       if (!tableGet(vm->frame->closure->function->module->variables, name,
                     &value)) {
         if (!tableGet(vm->globals, name, &value)) {
-          runtimeError(vm, "Undefined variable: %s", name->chars);
-          return OBA_RESULT_RUNTIME_ERROR;
+          vm->error = errorf(vm, "Undefined variable: %s", name->chars);
+          RUNTIME_ERROR();
         }
       }
       push(vm, value);
@@ -558,9 +592,9 @@ do {                                                                           \
 
       const char* oldTypeName = valueTypeName(oldValue);
       const char* newTypeName = valueTypeName(newValue);
-      runtimeError(vm, "Cannot assign '%s' to variable of type '%s'",
-                   newTypeName, oldTypeName);
-      return OBA_RESULT_RUNTIME_ERROR;
+      vm->error = errorf(vm, "Cannot assign '%s' to variable of type '%s'",
+                         newTypeName, oldTypeName);
+      RUNTIME_ERROR();
     }
 
     CASE_OP(GET_LOCAL) : {
@@ -594,32 +628,32 @@ do {                                                                           \
     CASE_OP(GET_IMPORTED_VARIABLE) : {
       Value receiver = pop(vm);
       if (!IS_MODULE(receiver)) {
-        runtimeError(vm, "Expected a module");
-        return OBA_RESULT_RUNTIME_ERROR;
+        obaTypeError(vm, "module");
+        RUNTIME_ERROR();
       }
 
       ObjModule* module = AS_MODULE(receiver);
       ObjString* name = READ_STRING();
       Value value;
       if (!tableGet(module->variables, name, &value)) {
-        runtimeError(vm, "Variable '%s' not found in module '%s'", name->chars,
-                     module->name);
-        return OBA_RESULT_RUNTIME_ERROR;
+        vm->error = errorf(vm, "Variable '%s' not found in module '%s'",
+                           name->chars, module->name);
+        RUNTIME_ERROR();
       }
       push(vm, value);
       DISPATCH();
     }
 
     CASE_OP(STRING) : {
-      ObjString* string = formatValue(vm, pop(vm));
-      push(vm, OBJ_VAL(string));
+      Value value = pop(vm);
+      push(vm, toStringNative(vm, 1, &value));
       DISPATCH();
     }
 
     CASE_OP(CALL) : {
       uint8_t argCount = READ_BYTE();
       if (!callValue(vm, peek(vm, argCount + 1), argCount)) {
-        return OBA_RESULT_RUNTIME_ERROR;
+        RUNTIME_ERROR();
       }
       DISPATCH();
     }
@@ -662,8 +696,9 @@ do {                                                                           \
       Value name = READ_CONSTANT();
       ObjClosure* moduleClosure = importModule(vm, name);
       if (moduleClosure == NULL) {
-        runtimeError(vm, "Could not import module '%s'", AS_CSTRING(name));
-        return OBA_RESULT_RUNTIME_ERROR;
+        vm->error =
+            errorf(vm, "Could not import module '%s'", AS_CSTRING(name));
+        RUNTIME_ERROR();
       }
       push(vm, OBJ_VAL(moduleClosure));
       callValue(vm, OBJ_VAL(moduleClosure), 0);

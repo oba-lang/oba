@@ -1,0 +1,14 @@
+// Option represents a possible value.
+//
+// This is a safe alternative to returning null values.
+// * None represents the absence of a value.
+// * Some represents the presence of a value.
+data Option = None | Some value
+
+// Must returns the value held in the given option, if it is an Option.
+//
+// If it is not an option, or it is None, a fatal error is raised.
+fn must option = match option
+  | None   = panic("expected a value")
+  | Some v = v
+  ;

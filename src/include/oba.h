@@ -27,4 +27,7 @@ void obaFreeVM(ObaVM*);
 // Runs [source], a string of Oba source code.
 ObaInterpretResult obaInterpret(ObaVM* vm, const char* source);
 
+void obaArityError(ObaVM* vm, int want, int got);
+void obaTypeError(ObaVM* vm, const char* expected);
+
 #endif
