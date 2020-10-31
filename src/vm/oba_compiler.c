@@ -100,7 +100,7 @@ static void printError(Compiler* compiler, const char* label,
                        compiler->parser->module->name->chars,
                        compiler->parser->currentLine);
   length += vsprintf(message + length, format, args);
-  ASSERT(length > MAX_ERROR_SIZE, "Error message should not exceed buffer");
+  ASSERT(length < MAX_ERROR_SIZE, "Error message should not exceed buffer");
   fprintf(stderr, "%s\n", message);
 }
 

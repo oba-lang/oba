@@ -36,4 +36,6 @@ typedef enum {
 #undef OPCODE
 } OpCode;
 
+void runtimeError(ObaVM* vm, const char* format, ...);
+
 #endif

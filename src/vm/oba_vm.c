@@ -40,22 +40,7 @@ static void defineNative(ObaVM* vm, const char* name, NativeFn function) {
 
 static void resetStack(ObaVM* vm) { vm->stackTop = vm->stack; }
 
-static void registerBuiltins(ObaVM* vm, Builtin* builtins, int builtinsLength) {
-  Builtin* builtin = __builtins__;
-
-  // Original builtins.
-  while (builtin->name != NULL) {
-    defineNative(vm, builtin->name, builtin->function);
-    builtin++;
-  }
-
-  // User builtins, registered last so they can override the originals.
-  for (int i = 0; i < builtinsLength; i++) {
-    defineNative(vm, builtins[i].name, builtins[i].function);
-  }
-}
-
-static void runtimeError(ObaVM* vm, const char* format, ...) {
+void runtimeError(ObaVM* vm, const char* format, ...) {
   va_list args;
   va_start(args, format);
   fprintf(stderr, "Runtime error: ");
@@ -70,6 +55,21 @@ static void runtimeError(ObaVM* vm, const char* format, ...) {
   fprintf(stderr, "[line %d] in script\n", line);
   */
   resetStack(vm);
+}
+
+static void registerBuiltins(ObaVM* vm, Builtin* builtins, int builtinsLength) {
+  Builtin* builtin = __builtins__;
+
+  // Original builtins.
+  while (builtin->name != NULL) {
+    defineNative(vm, builtin->name, builtin->function);
+    builtin++;
+  }
+
+  // User builtins, registered last so they can override the originals.
+  for (int i = 0; i < builtinsLength; i++) {
+    defineNative(vm, builtins[i].name, builtins[i].function);
+  }
 }
 
 static bool call(ObaVM* vm, ObjClosure* closure, int arity) {
@@ -227,6 +227,9 @@ static ObjClosure* importModule(ObaVM* vm, Value name) {
     }
     module++;
   }
+
+  if (source == NULL)
+    return NULL;
 
   return compileInModule(vm, name, source);
 }
@@ -656,7 +659,12 @@ do {                                                                           \
     }
 
     CASE_OP(IMPORT_MODULE) : {
-      ObjClosure* moduleClosure = importModule(vm, READ_CONSTANT());
+      Value name = READ_CONSTANT();
+      ObjClosure* moduleClosure = importModule(vm, name);
+      if (moduleClosure == NULL) {
+        runtimeError(vm, "Could not import module '%s'", AS_CSTRING(name));
+        return OBA_RESULT_RUNTIME_ERROR;
+      }
       push(vm, OBJ_VAL(moduleClosure));
       callValue(vm, OBJ_VAL(moduleClosure), 0);
       DISPATCH();

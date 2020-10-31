@@ -1,0 +1,1 @@
+import "fake-module" // expect runtime error: Could not import module 'fake-module'
