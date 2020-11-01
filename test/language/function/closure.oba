@@ -1,5 +1,6 @@
 fn makeClosure parameter { 
   fn closure { debug parameter }
+  return closure
 }
 
 let closure = makeClosure("parameter")

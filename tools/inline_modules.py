@@ -11,7 +11,7 @@ def transform_source_code(filename, lines):
         "// Generated automatically from %s. Do not edit." % filename,
         "const char* %sModSource =" % mod_name,
         "",
-    ] + ['"%s\\n"' % line.replace('"', '\\"').rstrip() for line in lines]
+    ] + ['"%s\\n"' % line.replace('"', '\\"').strip() for line in lines]
     output[-1] += ";"
     return output
 

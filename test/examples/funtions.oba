@@ -5,6 +5,7 @@ fn capture value {
   fn print {
     system::print(value)
   }
+  return print
 }
 
 let printer = capture(1)

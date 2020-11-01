@@ -876,6 +876,12 @@ static void functionBlockBody(Compiler* compiler) {
   }
 }
 
+static void functionExpressionBody(Compiler* compiler) {
+  expression(compiler);
+  // Insert implicit return so the user doesn't have to.
+  emitOp(compiler, OP_RETURN);
+}
+
 static void functionBody(Compiler* compiler) {
   if (peek(compiler) == TOK_LBRACK) {
     functionBlockBody(compiler);
@@ -883,7 +889,7 @@ static void functionBody(Compiler* compiler) {
   }
 
   if (match(compiler, TOK_ASSIGN)) {
-    expression(compiler);
+    functionExpressionBody(compiler);
     return;
   }
 
@@ -907,7 +913,7 @@ static int lambda(Compiler* compiler) {
   parameterList(&fnCompiler);
   ignoreNewlines(&fnCompiler);
   consume(&fnCompiler, TOK_ASSIGN, "Missing lambda expression");
-  expression(&fnCompiler);
+  functionExpressionBody(&fnCompiler);
 
   ObjFunction* fn = endCompiler(&fnCompiler, "", 0);
   if (fn == NULL) return -1;
@@ -953,8 +959,20 @@ static void functionDefinition(Compiler* compiler) {
 }
 
 static void returnStmt(Compiler* compiler) {
-  expression(compiler);
+  if (compiler->parent == NULL) {
+    error(compiler, "Cannot return from module scope");
+    return;
+  }
+  if (peek(compiler) == TOK_NEWLINE) {
+    // TODO(kendal): Replace this will a call to None() so we don't have to
+    // handle nil.
+    emitConstant(compiler, NIL_VAL);
+  } else {
+    expression(compiler);
+  }
+
   emitOp(compiler, OP_RETURN);
+  ignoreNewlines(compiler);
 }
 
 static void statement(Compiler* compiler) {
@@ -974,11 +992,7 @@ static void statement(Compiler* compiler) {
     returnStmt(compiler);
   } else {
     expression(compiler);
-    // TODO(kendal): Add a return-statement and just always pop the result of an
-    // expression statement.
-    if (compiler->currentDepth == 0) {
-      emitOp(compiler, OP_POP);
-    }
+    emitOp(compiler, OP_POP);
   }
 }
 
@@ -1293,7 +1307,6 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
     // which would also prevent us from having to fixup the VM's ip and frame
     // before executing the compiled code.
     compiler->parent->parser = compiler->parser;
-    emitOp(compiler, OP_RETURN);
   }
 
   // There is always an OP_END_MODULE or OP_RETURN instruction before this.

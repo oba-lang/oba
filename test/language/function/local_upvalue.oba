@@ -4,7 +4,7 @@ fn makeClosure {
       debug outerValue
   }
    
-  middle
+  return middle
 }
 
 let middle = makeClosure()
