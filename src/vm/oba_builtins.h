@@ -79,6 +79,12 @@ Value __native_read_line(ObaVM* vm, int argc, Value* argv) {
 Value __native_print(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
   printValue(argv[0]);
+  return NIL_VAL;
+}
+
+Value __native_println(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 1);
+  printValue(argv[0]);
   printf("\n");
   return NIL_VAL;
 }
@@ -102,13 +108,20 @@ Value __native_global(ObaVM* vm, int argc, Value* argv) {
   return NIL_VAL;
 }
 
+Value __native_is_nil(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 1);
+  return OBA_BOOL(valuesEqual(argv[0], NIL_VAL));
+}
+
 Builtin __builtins__[] = {
     {"__native_sleep", &__native_sleep},
     {"__native_now", &__native_now},
     {"__native_read_byte", &__native_read_byte},
     {"__native_read_line", &__native_read_line},
     {"__native_print", &__native_print},
+    {"__native_println", &__native_println},
     {"__native_global", &__native_global},
+    {"__native_is_nil", &__native_is_nil},
     {"str", &__native_str},
     {"panic", &__native_panic},
     {NULL, NULL}, // Sentinel to mark the end of the array.

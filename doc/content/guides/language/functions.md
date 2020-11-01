@@ -20,14 +20,12 @@ same function with a block-statement body, using { and }:
 
 ```
 fn add a b {
-  a + b
+  return a + b
 }
 ```
 
-You may have noticed that functions do not use return statements. In Oba,
-a function call evaluates to the last value on the stack when the end of the
-function body is reached. So, in the above example, `a + b` is returned.
-
+You may have noticed that functions with expression bodies do not use return
+statements. Instead, the compiler implicitly inserts a return statement for you.
 
 ## Types
 
@@ -39,7 +37,7 @@ and outputs of a function in a doc comment:
 // Adds [a] and [b], which must be numbers or strings.
 // Both arguments must have the same type.
 fn add a b {
-  a + b
+  return a + b
 }
 ```
 

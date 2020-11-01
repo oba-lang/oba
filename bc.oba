@@ -1,0 +1,11 @@
+import "system"
+
+while true { 
+  system::print("> ")
+  let line = must(system::readLine())
+  if line == "\n" {
+    system::println("Please enter an equation")
+  } else {
+    system::println("You entered: %(line)")
+  }
+}

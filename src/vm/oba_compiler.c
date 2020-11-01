@@ -231,11 +231,12 @@ static void defineGlobal(Compiler* compiler, int global) {
 
 // Declares a new local in an uninitialized state.
 // Any attempt to use the local before it is initialized is an error.
-static void addLocal(Compiler* compiler, Token name) {
+static int addLocal(Compiler* compiler, Token name) {
   Local* local = &compiler->locals[compiler->localCount++];
   local->token = name;
   local->depth = -1;
   local->isCaptured = false;
+  return compiler->localCount;
 }
 
 static int addUpvalue(Compiler* compiler, int slot, bool isLocal) {
@@ -277,8 +278,7 @@ static int declareVariable(Compiler* compiler, Token name) {
     }
   }
 
-  addLocal(compiler, name);
-  return 0;
+  return addLocal(compiler, name);
 }
 
 static void defineVariable(Compiler* compiler, int variable) {
@@ -415,6 +415,7 @@ GrammarRule rules[] =  {
   /* TOK_FN            */ UNUSED,
   /* TOK_IMPORT        */ UNUSED,
   /* TOK_DATA          */ UNUSED,
+  /* TOK_RETURN        */ UNUSED,
   /* TOK_ERROR         */ UNUSED,  
   /* TOK_EOF           */ UNUSED,
 };
@@ -442,6 +443,7 @@ static Keyword keywords[] = {
     {"match",  5, TOK_MATCH},
     {"fn",     2, TOK_FN},
     {"import", 6, TOK_IMPORT},
+    {"return", 6, TOK_RETURN},
     {NULL,     0, TOK_EOF}, // Sentinel to mark the end of the array.
 };
 
@@ -838,28 +840,18 @@ static void blockStmt(Compiler* compiler) {
 }
 
 static void ifStmt(Compiler* compiler) {
-  // Compile the conditional.
-  expression(compiler);
+  expression(compiler); // conditional
 
-  // Emit the jump instruction.
-  // When the VM reaches this, the value of the conditional is on the top of the
-  // stack, and it will jump based on that value's truthiness.
   int offset = emitJump(compiler, OP_JUMP_IF_FALSE);
-  // Compile the "then" branch.
   statement(compiler);
+  int endif = emitJump(compiler, OP_JUMP);
   patchJump(compiler, offset);
 
-  // Compile the "else" branch.
   if (match(compiler, TOK_ELSE)) {
-    // At this point the value of the conditional is still on the stack. Skip
-    // the else clause if it was truthy.
-    offset = emitJump(compiler, OP_JUMP_IF_TRUE);
     statement(compiler);
-    patchJump(compiler, offset);
   }
 
-  // Don't forget to pop the conditional
-  emitOp(compiler, OP_POP);
+  patchJump(compiler, endif);
 }
 
 static void whileStmt(Compiler* compiler) {
@@ -870,9 +862,6 @@ static void whileStmt(Compiler* compiler) {
   int offset = emitJump(compiler, OP_JUMP_IF_FALSE);
   statement(compiler);
 
-  // Pop the conditional before looping, since the value is recompiled each time
-  // based on the new stack contents.
-  emitOp(compiler, OP_POP);
   emitLoop(compiler, loopStart);
   patchJump(compiler, offset);
 }
@@ -887,6 +876,12 @@ static void functionBlockBody(Compiler* compiler) {
   }
 }
 
+static void functionExpressionBody(Compiler* compiler) {
+  expression(compiler);
+  // Insert implicit return so the user doesn't have to.
+  emitOp(compiler, OP_RETURN);
+}
+
 static void functionBody(Compiler* compiler) {
   if (peek(compiler) == TOK_LBRACK) {
     functionBlockBody(compiler);
@@ -894,7 +889,7 @@ static void functionBody(Compiler* compiler) {
   }
 
   if (match(compiler, TOK_ASSIGN)) {
-    expression(compiler);
+    functionExpressionBody(compiler);
     return;
   }
 
@@ -918,7 +913,7 @@ static int lambda(Compiler* compiler) {
   parameterList(&fnCompiler);
   ignoreNewlines(&fnCompiler);
   consume(&fnCompiler, TOK_ASSIGN, "Missing lambda expression");
-  expression(&fnCompiler);
+  functionExpressionBody(&fnCompiler);
 
   ObjFunction* fn = endCompiler(&fnCompiler, "", 0);
   if (fn == NULL) return -1;
@@ -963,6 +958,23 @@ static void functionDefinition(Compiler* compiler) {
   defineVariable(compiler, declareVariable(compiler, name));
 }
 
+static void returnStmt(Compiler* compiler) {
+  if (compiler->parent == NULL) {
+    error(compiler, "Cannot return from module scope");
+    return;
+  }
+  if (peek(compiler) == TOK_NEWLINE) {
+    // TODO(kendal): Replace this will a call to None() so we don't have to
+    // handle nil.
+    emitConstant(compiler, NIL_VAL);
+  } else {
+    expression(compiler);
+  }
+
+  emitOp(compiler, OP_RETURN);
+  ignoreNewlines(compiler);
+}
+
 static void statement(Compiler* compiler) {
   if (match(compiler, TOK_FN)) {
     functionDefinition(compiler);
@@ -976,13 +988,11 @@ static void statement(Compiler* compiler) {
     ifStmt(compiler);
   } else if (match(compiler, TOK_WHILE)) {
     whileStmt(compiler);
+  } else if (match(compiler, TOK_RETURN)) {
+    returnStmt(compiler);
   } else {
     expression(compiler);
-    // TODO(kendal): Add a return-statement and just always pop the result of an
-    // expression statement.
-    if (compiler->currentDepth == 0) {
-      emitOp(compiler, OP_POP);
-    }
+    emitOp(compiler, OP_POP);
   }
 }
 
@@ -1297,7 +1307,6 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
     // which would also prevent us from having to fixup the VM's ip and frame
     // before executing the compiled code.
     compiler->parent->parser = compiler->parser;
-    emitOp(compiler, OP_RETURN);
   }
 
   // There is always an OP_END_MODULE or OP_RETURN instruction before this.

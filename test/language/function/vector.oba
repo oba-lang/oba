@@ -3,27 +3,27 @@
 // Creates a new "vector" from the given x and y coordinates.
 fn newVector x y {
    fn vector coord {
-     match coord
+     return match coord
        | "x" = x
        | "y" = y
        ;
    }
 
-   vector
+   return vector
 }
 
 // Returns the x-coordinate of the given vector.
 fn getX vector {
-   vector("x")
+   return vector("x")
 }
 
 // Returns the y-coordinate of the given vector.
 fn getY vector {
-   vector("y")
+   return vector("y")
 } 
 
 fn addVectors a b {
-  newVector(getX(a) + getX(b), getY(a) + getY(b))
+  return newVector(getX(a) + getX(b), getY(a) + getY(b))
 }
 
 let v1 = newVector(1, 2)

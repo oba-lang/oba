@@ -7,9 +7,9 @@ fn makeClosure val {
       debug outerVal
       debug middleVal 
     }
-    inner
+    return inner
   }
-  middle
+  return middle
 }
 
 let middle = makeClosure("arg")

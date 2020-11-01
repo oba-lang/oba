@@ -1,7 +1,7 @@
 import "system"
 
 // example: guides/language/values functions
-fn hello = system::print("hello")
+fn hello = system::println("hello")
 fn call f = f()
 call(hello)
 // end example
@@ -12,9 +12,9 @@ call(hello)
 let none = None()
 let some = Some("value")
 
-system::print(none) // Prints: (Option::None)
-system::print(some) // Prints: (Option::Some,value)
-system::print(none == some) // Prints: false
+system::println(none) // Prints: (Option::None)
+system::println(some) // Prints: (Option::Some,value)
+system::println(none == some) // Prints: false
 // end example
 // expect: (Option::None)
 // expect: (Option::Some,value)
@@ -23,7 +23,7 @@ system::print(none == some) // Prints: false
 // example: guides/language/values importOption
 import "option"
 
-system::print(option::Some) // Prints: Option::Some
+system::println(option::Some) // Prints: Option::Some
 // end example
 // expect: Option::Some
 

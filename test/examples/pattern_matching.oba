@@ -37,7 +37,7 @@ let area = match shape
    | Rectangle w h = w * h
    ; 
 // end example
-system::print(area) // expect: 12
+system::print("%(area)\n") // expect: 12
 
 {
 // example: guides/language/pattern_matching mixedPatterns
@@ -50,7 +50,7 @@ let size = match value
   | value         = value
   ;
 
-system::print(size) // Prints: 16
+system::print("%(size)\n") // Prints: 16
 // end example
 }
 // expect: 16
