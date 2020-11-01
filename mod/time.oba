@@ -6,5 +6,6 @@ fn now {
 // Sleep makes the calling thread sleep until seconds have elapsed.
 fn sleep seconds {
  __native_sleep(seconds)
+ None()
 }
 

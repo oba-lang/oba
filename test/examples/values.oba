@@ -8,12 +8,22 @@ call(hello)
 // expect: hello
 
 
-// example: guides/language/values isNil
-let nil = system::print("print returns nil")
-system::print(isNil(nil)) // true
-system::print(isNil("")) // false
+// example: guides/language/values option
+let none = None()
+let some = Some("value")
+
+system::print(none) // Prints: (Option::None)
+system::print(some) // Prints: (Option::Some,value)
+system::print(none == some) // Prints: false
 // end example
-// expect: print returns nil
-// expect: true
+// expect: (Option::None)
+// expect: (Option::Some,value)
 // expect: false
+
+// example: guides/language/values importOption
+import "option"
+
+system::print(option::Some) // Prints: Option::Some
+// end example
+// expect: Option::Some
 

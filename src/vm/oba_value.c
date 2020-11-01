@@ -322,6 +322,17 @@ bool objectsEqual(Value ao, Value bo) {
     NativeFn b = AS_NATIVE(bo);
     return a == b;
   }
+  case OBJ_INSTANCE: {
+    ObjInstance* a = AS_INSTANCE(ao);
+    ObjInstance* b = AS_INSTANCE(bo);
+    if (a->ctor != b->ctor) return false;
+    for (int i = 0; i < a->ctor->arity; i++) {
+      if (!valuesEqual(a->fields[i], b->fields[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
   default:
     return false; // Unreachable.
   }
