@@ -326,12 +326,10 @@ static void freeObjects(ObaVM* vm) {
 static bool obaHasError(ObaVM* vm) { return !valuesEqual(vm->error, NIL_VAL); }
 
 void obaFreeVM(ObaVM* vm) {
-  // The closure is unset if an error occurred during compilation.
-  if (vm->frame->closure != NULL) {
-    freeChunk(&vm->frame->closure->function->chunk);
-  }
-  freeTable(vm->frame->closure->function->module->variables);
+  // Any non-object values held in object fields will be freed by this.
   freeObjects(vm);
+  freeTable(vm->globals);
+  free(vm->globals);
   free(vm);
 }
 
@@ -720,6 +718,7 @@ static ObaInterpretResult run(ObaVM* vm) {
 
     CASE_OP(EXIT) : {
       // Pop the root closure off the stack.
+      return_(vm);
       pop(vm);
       return OBA_RESULT_SUCCESS;
     }
