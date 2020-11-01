@@ -43,7 +43,7 @@ static void defineNative(ObaVM* vm, const char* name, NativeFn function) {
 
 static void resetStack(ObaVM* vm) { vm->stackTop = vm->stack; }
 
-Value errorf(ObaVM* vm, const char* format, ...) {
+void obaErrorf(ObaVM* vm, const char* format, ...) {
   char buf[MAX_ERROR_SIZE];
 
   va_list args;
@@ -51,17 +51,17 @@ Value errorf(ObaVM* vm, const char* format, ...) {
   int length = vsprintf(buf, format, args);
   va_end(args);
 
-  return OBJ_VAL(copyString(vm, buf, length));
+  vm->error = OBJ_VAL(copyString(vm, buf, length));
 }
 
 void obaTypeError(ObaVM* vm, const char* expected) {
-  vm->error = errorf(vm, "expected a %s value", expected);
+  obaErrorf(vm, "expected a %s value", expected);
 }
 
 void obaArityError(ObaVM* vm, int want, int got) {
   char* arguments = "argument";
   if (want > 1) arguments = "arguments";
-  vm->error = errorf(vm, "expected %d %s but got %d", want, arguments, got);
+  obaErrorf(vm, "expected %d %s but got %d", want, arguments, got);
 }
 
 void runtimeError(ObaVM* vm) {
@@ -111,7 +111,7 @@ static bool call(ObaVM* vm, ObjClosure* closure, int arity) {
 
   vm->frame++;
   if (vm->frame - vm->frames > FRAMES_MAX) {
-    vm->error = errorf(vm, "Too many nested function calls");
+    obaErrorf(vm, "Too many nested function calls");
     return false;
   }
   vm->frame->closure = closure;
@@ -159,7 +159,7 @@ static bool callValue(ObaVM* vm, Value value, int arity) {
     }
   }
 
-  vm->error = errorf(vm, "Can only call functions");
+  obaErrorf(vm, "Can only call functions");
   return false;
 }
 
@@ -354,7 +354,7 @@ static ObaInterpretResult run(ObaVM* vm) {
       double a = AS_NUMBER(pop(vm));                                           \
       push(vm, type(a op b));                                                  \
     } else {                                                                   \
-      vm->error = errorf(vm, "Expected numeric or string operands");           \
+      obaErrorf(vm, "Expected numeric or string operands");                    \
       RUNTIME_ERROR();                                                         \
     }                                                                          \
   } while (0)
@@ -427,7 +427,7 @@ static ObaInterpretResult run(ObaVM* vm) {
     }
 
     CASE_OP(ERROR) : {
-      vm->error = errorf(vm, AS_CSTRING(READ_CONSTANT()));
+      obaErrorf(vm, AS_CSTRING(READ_CONSTANT()));
       RUNTIME_ERROR();
     }
 
@@ -572,7 +572,7 @@ static ObaInterpretResult run(ObaVM* vm) {
       if (!tableGet(vm->frame->closure->function->module->variables, name,
                     &value)) {
         if (!tableGet(vm->globals, name, &value)) {
-          vm->error = errorf(vm, "Undefined variable: %s", name->chars);
+          obaErrorf(vm, "Undefined variable: %s", name->chars);
           RUNTIME_ERROR();
         }
       }
@@ -592,8 +592,8 @@ static ObaInterpretResult run(ObaVM* vm) {
 
       const char* oldTypeName = valueTypeName(oldValue);
       const char* newTypeName = valueTypeName(newValue);
-      vm->error = errorf(vm, "Cannot assign '%s' to variable of type '%s'",
-                         newTypeName, oldTypeName);
+      obaErrorf(vm, "Cannot assign '%s' to variable of type '%s'", newTypeName,
+                oldTypeName);
       RUNTIME_ERROR();
     }
 
@@ -636,8 +636,8 @@ static ObaInterpretResult run(ObaVM* vm) {
       ObjString* name = READ_STRING();
       Value value;
       if (!tableGet(module->variables, name, &value)) {
-        vm->error = errorf(vm, "Variable '%s' not found in module '%s'",
-                           name->chars, module->name);
+        obaErrorf(vm, "Variable '%s' not found in module '%s'", name->chars,
+                  module->name);
         RUNTIME_ERROR();
       }
       push(vm, value);
@@ -696,8 +696,7 @@ static ObaInterpretResult run(ObaVM* vm) {
       Value name = READ_CONSTANT();
       ObjClosure* moduleClosure = importModule(vm, name);
       if (moduleClosure == NULL) {
-        vm->error =
-            errorf(vm, "Could not import module '%s'", AS_CSTRING(name));
+        obaErrorf(vm, "Could not import module '%s'", AS_CSTRING(name));
         RUNTIME_ERROR();
       }
       push(vm, OBJ_VAL(moduleClosure));

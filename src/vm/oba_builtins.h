@@ -9,15 +9,6 @@
 #include "oba_value.h"
 #include "oba_vm.h"
 
-Value panicNative(ObaVM* vm, int argc, Value* argv) {
-  if (argc > 0) {
-    vm->error = argv[0];
-  } else {
-    vm->error = OBJ_VAL(copyString(vm, "panic", 5));
-  }
-  return NIL_VAL;
-}
-
 #define ASSERT_ARITY(vm, argc, arity)                                          \
   do {                                                                         \
     if ((argc) != (arity)) {                                                   \
@@ -26,21 +17,38 @@ Value panicNative(ObaVM* vm, int argc, Value* argv) {
     }                                                                          \
   } while (0)
 
+Value panicNative(ObaVM* vm, int argc, Value* argv) {
+  switch (argc) {
+  case 0:
+    obaErrorf(vm, "panic");
+    break;
+  case 1:
+    vm->error = argv[0];
+    break;
+  default:
+    obaErrorf(vm, "expected 0 or 1 arguments but got %d", argc);
+    break;
+  }
+  return NIL_VAL;
+}
+
 Value sleepNative(ObaVM* vm, int argc, Value* argv) {
-  // Assume argc == 1 and argv != NULL
+  ASSERT_ARITY(vm, argc, 1);
   Value seconds = argv[0];
   unsigned int remaining = (unsigned int)AS_NUMBER(seconds);
-  while (remaining > 0)
-    remaining = sleep(remaining);
+  while (remaining > 0) remaining = sleep(remaining);
   return OBA_NUMBER(0);
 }
 
 Value nowNative(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 0);
   return OBA_NUMBER((double)clock() / CLOCKS_PER_SEC);
 }
 
 Value readByteNative(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 0);
   int c;
+
   if ((c = getchar()) == EOF) {
     return NIL_VAL;
   }
@@ -49,21 +57,26 @@ Value readByteNative(ObaVM* vm, int argc, Value* argv) {
 }
 
 Value readLineNative(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 0);
   char* line = NULL;
   size_t length;
+
   if (getline(&line, &length, stdin) == -1) {
+    // TODO(kendal): produce some sort of error for the caller to handle.
+    if (!feof(stdin)) {
+      vm->error = OBJ_VAL(copyString(vm, "read", 4));
+    }
     return NIL_VAL;
-    // TODO: if (feof(stdin)) { /* nil */ }  else { /* error */ }
   }
+
   Value value = OBJ_VAL(copyString(vm, line, length));
   free(line);
   return value;
 }
 
 Value printNative(ObaVM* vm, int argc, Value* argv) {
-  if (argc > 0) {
-    printValue(argv[0]);
-  }
+  ASSERT_ARITY(vm, argc, 1);
+  printValue(argv[0]);
   printf("\n");
   return NIL_VAL;
 }
