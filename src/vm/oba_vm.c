@@ -652,7 +652,7 @@ static ObaInterpretResult run(ObaVM* vm) {
 
     CASE_OP(STRING) : {
       Value value = pop(vm);
-      push(vm, toStringNative(vm, 1, &value));
+      push(vm, strNative(vm, 1, &value));
       DISPATCH();
     }
 

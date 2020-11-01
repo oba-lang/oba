@@ -83,7 +83,7 @@ Value printNative(ObaVM* vm, int argc, Value* argv) {
   return NIL_VAL;
 }
 
-Value toStringNative(ObaVM* vm, int argc, Value* argv) {
+Value strNative(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
   char buf[FORMAT_VALUE_MAX];
   int length = formatValue(vm, buf, argv[0]);
@@ -109,7 +109,7 @@ Builtin __builtins__[] = {
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
     {"__native_global", &globalNative},
-    {"toString", &toStringNative},
+    {"str", &strNative},
     {"panic", &panicNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
