@@ -83,13 +83,6 @@ Value printNative(ObaVM* vm, int argc, Value* argv) {
   return NIL_VAL;
 }
 
-Value isNilNative(ObaVM* vm, int argc, Value* argv) {
-  if (argc != 1) {
-    return OBA_BOOL(false);
-  }
-  return OBA_BOOL(argv[0].type == VAL_NIL);
-}
-
 Value toStringNative(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
   char buf[FORMAT_VALUE_MAX];
@@ -116,7 +109,6 @@ Builtin __builtins__[] = {
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
     {"__native_global", &globalNative},
-    {"isNil", &isNilNative},
     {"toString", &toStringNative},
     {"panic", &panicNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
