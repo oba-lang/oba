@@ -651,8 +651,10 @@ static ObaInterpretResult run(ObaVM* vm) {
     }
 
     CASE_OP(STRING) : {
-      Value value = pop(vm);
-      push(vm, strNative(vm, 1, &value));
+      char buf[FORMAT_VALUE_MAX];
+      int length = formatValue(vm, buf, pop(vm));
+      Value string = OBJ_VAL(copyString(vm, buf, length));
+      push(vm, string);
       DISPATCH();
     }
 

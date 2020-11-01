@@ -19,7 +19,7 @@
     }                                                                          \
   } while (0)
 
-Value panicNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_panic(ObaVM* vm, int argc, Value* argv) {
   switch (argc) {
   case 0:
     obaErrorf(vm, "panic");
@@ -34,7 +34,7 @@ Value panicNative(ObaVM* vm, int argc, Value* argv) {
   return NIL_VAL;
 }
 
-Value sleepNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_sleep(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
   Value seconds = argv[0];
   unsigned int remaining = (unsigned int)AS_NUMBER(seconds);
@@ -42,12 +42,12 @@ Value sleepNative(ObaVM* vm, int argc, Value* argv) {
   return OBA_NUMBER(0);
 }
 
-Value nowNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_now(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 0);
   return OBA_NUMBER((double)clock() / CLOCKS_PER_SEC);
 }
 
-Value readByteNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_read_byte(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 0);
   int c;
 
@@ -58,7 +58,7 @@ Value readByteNative(ObaVM* vm, int argc, Value* argv) {
   return OBJ_VAL(copyString(vm, &byte, 1));
 }
 
-Value readLineNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_read_line(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 0);
   char* line = NULL;
   size_t length;
@@ -76,14 +76,14 @@ Value readLineNative(ObaVM* vm, int argc, Value* argv) {
   return value;
 }
 
-Value printNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_print(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
   printValue(argv[0]);
   printf("\n");
   return NIL_VAL;
 }
 
-Value strNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_str(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
   char buf[FORMAT_VALUE_MAX];
   int length = formatValue(vm, buf, argv[0]);
@@ -92,7 +92,7 @@ Value strNative(ObaVM* vm, int argc, Value* argv) {
 
 // Exports a symbol from a module as a VM global, available to all modules.
 // This can only be called by the builtin module which is packaged with the VM.
-Value globalNative(ObaVM* vm, int argc, Value* argv) {
+Value __native_global(ObaVM* vm, int argc, Value* argv) {
   if (vm->allowGlobals) {
     ASSERT_ARITY(vm, argc, 2);
     tableSet(vm->globals, AS_STRING(argv[0]), argv[1]);
@@ -103,14 +103,14 @@ Value globalNative(ObaVM* vm, int argc, Value* argv) {
 }
 
 Builtin __builtins__[] = {
-    {"__native_sleep", &sleepNative},
-    {"__native_now", &nowNative},
-    {"__native_read_byte", &readByteNative},
-    {"__native_read_line", &readLineNative},
-    {"__native_print", &printNative},
-    {"__native_global", &globalNative},
-    {"str", &strNative},
-    {"panic", &panicNative},
+    {"__native_sleep", &__native_sleep},
+    {"__native_now", &__native_now},
+    {"__native_read_byte", &__native_read_byte},
+    {"__native_read_line", &__native_read_line},
+    {"__native_print", &__native_print},
+    {"__native_global", &__native_global},
+    {"str", &__native_str},
+    {"panic", &__native_panic},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 
