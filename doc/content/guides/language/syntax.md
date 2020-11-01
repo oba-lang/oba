@@ -130,13 +130,13 @@ operator `!` are always right-associative. Binary operators such as `+-*/` are
 always left-associative.  The full set of operators is described in the table
 below:
 
-| Precedence | Operators       | Description     | Associativity |
-|------------|-----------------|-----------------|---------------|
-| 1          | ! =             | Not, Assignment | Right         |
-| 2          | < > <= >= != == | Comparison      | Left          |
-| 3          | + -             | Add,Subtract    | Left          |
-| 4          | / *             | Multiply,Divide | Left          |
-| 5          | ::              | Membership      | Left          |
+| Precedence | Operators       | Description      | Associativity |
+|------------|-----------------|------------------|---------------|
+| 1          | ! =             | Not, Assignment  | Right         |
+| 2          | < > <= >= != == | Comparison       | Left          |
+| 3          | + - %           | Add,Subtract,Mod | Left          |
+| 4          | / *             | Multiply,Divide  | Left          |
+| 5          | ::              | Membership       | Left          |
 
 ## Grammar
 
@@ -153,7 +153,7 @@ statement     = functionDefn
               | ifStmt
               | whileStmt
               | expression
-constructor   | IDENT+
+constructor   | IDENTGG
 functionDefn  = 'fn' IDENT parameterList functionBody
 variableDecl  = 'let' IDENT '=' expression
 debugStmt     = 'debug' expression

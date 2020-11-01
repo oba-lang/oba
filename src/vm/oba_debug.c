@@ -56,6 +56,8 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     return simpleInstruction("OP_MULTIPLY", chunk, offset);
   case OP_DIVIDE:
     return simpleInstruction("OP_DIVIDE", chunk, offset);
+  case OP_MODULO:
+    return simpleInstruction("OP_MODULO", chunk, offset);
   case OP_TRUE:
     return simpleInstruction("OP_TRUE", chunk, offset);
   case OP_FALSE:

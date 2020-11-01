@@ -25,6 +25,7 @@ typedef enum {
   TOK_RBRACK,
   TOK_PLUS,
   TOK_MINUS,
+  TOK_MODULO,
   TOK_MULTIPLY,
   TOK_DIVIDE,
   TOK_MEMBER,

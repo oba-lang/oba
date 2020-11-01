@@ -144,6 +144,7 @@ CoreModule __core_modules__[] = {
     {"option", obaOptionModSource},
     {"system", obaSystemModSource},
     {"time", obaTimeModSource},
+    {"list", obaListModSource},
     {NULL, NULL},
 };
 

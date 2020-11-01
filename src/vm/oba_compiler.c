@@ -343,7 +343,7 @@ typedef enum {
   PREC_LOWEST,
   PREC_ASSIGN,  // =
   PREC_COND,    // < > <= >= != ==
-  PREC_SUM,     // + -
+  PREC_SUM,     // + - %
   PREC_PRODUCT, // * /
   PREC_MEMBER,  // ::
 } Precedence;
@@ -396,6 +396,7 @@ GrammarRule rules[] =  {
   /* TOK_RBRACK        */ UNUSED, 
   /* TOK_PLUS          */ INFIX_OPERATOR(PREC_SUM, "+"),
   /* TOK_MINUS         */ INFIX_OPERATOR(PREC_SUM, "-"),
+  /* TOK_MODULO        */ INFIX_OPERATOR(PREC_SUM, "%"),
   /* TOK_MULTIPLY      */ INFIX_OPERATOR(PREC_PRODUCT, "*"),
   /* TOK_DIVIDE        */ INFIX_OPERATOR(PREC_PRODUCT, "/"),
   /* TOK_MEMBER        */ INFIX(PREC_MEMBER, member),
@@ -665,6 +666,9 @@ static void nextToken(Compiler* compiler) {
         break;
       }
       makeToken(compiler, TOK_DIVIDE);
+      return;
+    case '%':
+      makeToken(compiler, TOK_MODULO);
       return;
     case '"':
       readString(compiler);
@@ -1262,6 +1266,9 @@ static void infixOp(Compiler* compiler, bool canAssign) {
     return;
   case TOK_DIVIDE:
     emitOp(compiler, OP_DIVIDE);
+    return;
+  case TOK_MODULO:
+    emitOp(compiler, OP_MODULO);
     return;
   case TOK_GT:
     emitOp(compiler, OP_GT);
