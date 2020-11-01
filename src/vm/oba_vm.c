@@ -756,6 +756,5 @@ ObaInterpretResult obaInterpret(ObaVM* vm, const char* source) {
   vm->allowGlobals = true;
   interpret(vm, obaGlobalsModSource());
   vm->allowGlobals = false;
-
   return interpret(vm, source);
 }

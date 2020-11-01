@@ -134,10 +134,11 @@ typedef struct {
 extern const char* systemModSource;
 extern const char* timeModSource;
 
+// Keep these sorted alphabetically.
 CoreModule __core_modules__[] = {
+    {"option", obaOptionModSource},
     {"system", obaSystemModSource},
     {"time", obaTimeModSource},
-    {"option", obaOptionModSource},
     {NULL, NULL},
 };
 
