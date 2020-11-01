@@ -9,5 +9,6 @@ const char* timeModSource =
     "// Sleep makes the calling thread sleep until seconds have elapsed.\n"
     "fn sleep seconds {\n"
     " __native_sleep(seconds)\n"
+    " None()\n"
     "}\n"
     "\n";

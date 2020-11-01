@@ -32,6 +32,10 @@ struct ObaVM {
   // Set by Oba code when a panic occurs. When set, the VM prints the error, a
   // stacktrace, and exits on the next turn.
   Value error;
+
+  // Whether the current module can define new global variables. This is used
+  // internally and is automatically disabled for user code.
+  bool allowGlobals;
 };
 
 typedef enum {

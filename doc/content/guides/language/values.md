@@ -35,17 +35,17 @@ passed as arguments to other functions.
 
 <!-- example functions -->
 
-# Nil
+# Optional Values
 
-Oba has a singleton `nil` value which indicates the absence of a value. It
-is often used as a return value from built-in functions which don't return
-anything. There is no `nil` keyword, so the following code is invalid:
+Oba uses a built-in [Data Type] named `Option` to indicate the presence or
+absence of a value. The `None` constructor is used to signifiy the absence of a
+value, while the `Some` constructor is used to signify the presence of a value:
 
-```
-let x = nil
-```
+<!-- example option -->
 
-However, the user can detect whether a value is nil using `isNil`
+The `Option` data type is visible to all Oba programs. It can optionally (ha)
+be imported from the "option" module:
 
-<!-- example isNil -->
+<!-- example importOption -->
 
+[Data Type]: {{< relref path="/guides/language/data.md" >}}

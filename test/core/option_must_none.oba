@@ -1,4 +1,3 @@
-import "option"
 import "system"
 
-option::must(option::None()) // expect runtime error: expected a value
+must(None()) // expect runtime error: expected a value

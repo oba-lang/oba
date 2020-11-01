@@ -1,2 +1,2 @@
-debug toString(1, 2) // expect runtime error: expected 1 argument but got 2
+debug str(1, 2) // expect runtime error: expected 1 argument but got 2
 

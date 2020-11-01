@@ -1,11 +1,14 @@
 fn print value {
   __native_print(value)
+  None()
 }
 
 fn readByte {
   __native_read_byte()
+  None()
 }
 
 fn readLine {
   __native_read_line()
+  None()
 }

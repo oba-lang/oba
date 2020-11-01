@@ -1,6 +1,6 @@
 import "option"
 import "system"
 
-let some = option::Some(1)
+let some = Some(1)
 system::print("%(some)") // expect: (Option::Some,1)
 

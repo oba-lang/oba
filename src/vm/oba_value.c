@@ -237,7 +237,6 @@ void freeObject(Obj* obj) {
 
 DEFINE_BUFFER(Byte, uint8_t)
 DEFINE_BUFFER(Value, Value)
-DEFINE_BUFFER(String, ObjString*)
 
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   ObjString* string = ALLOCATE_OBJ(vm, ObjString, OBJ_STRING);
@@ -322,6 +321,17 @@ bool objectsEqual(Value ao, Value bo) {
     NativeFn a = AS_NATIVE(ao);
     NativeFn b = AS_NATIVE(bo);
     return a == b;
+  }
+  case OBJ_INSTANCE: {
+    ObjInstance* a = AS_INSTANCE(ao);
+    ObjInstance* b = AS_INSTANCE(bo);
+    if (a->ctor != b->ctor) return false;
+    for (int i = 0; i < a->ctor->arity; i++) {
+      if (!valuesEqual(a->fields[i], b->fields[i])) {
+        return false;
+      }
+    }
+    return true;
   }
   default:
     return false; // Unreachable.

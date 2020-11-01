@@ -761,8 +761,7 @@ static void constructor(Compiler* compiler, ObjString* family) {
   // expected type of a filed to readers. The only thing the VM keeps track of
   // is the arity of the constructor.
   int arity = 0;
-  while (match(compiler, TOK_IDENT))
-    arity++;
+  while (match(compiler, TOK_IDENT)) arity++;
 
   ObjCtor* ctor = newCtor(compiler->vm, family, name, arity);
 

@@ -1,7 +1,7 @@
-debug toString(1) // expect: 1
-debug toString(2) // expect: 2
-debug toString("hello") // expect: hello
-debug toString(true) // expect: true
-debug toString(false) // expect: false
-debug toString(1) + " + " + toString(2) + " = 3" // expect: 1 + 2 = 3
+debug str(1) // expect: 1
+debug str(2) // expect: 2
+debug str("hello") // expect: hello
+debug str(true) // expect: true
+debug str(false) // expect: false
+debug str(1) + " + " + str(2) + " = 3" // expect: 1 + 2 = 3
 
