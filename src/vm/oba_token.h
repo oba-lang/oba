@@ -62,6 +62,7 @@ typedef enum {
   TOK_FN,
   TOK_IMPORT,
   TOK_DATA,
+  TOK_RETURN,
 
   TOK_ERROR,
   TOK_EOF,

@@ -1,14 +1,25 @@
 fn print value {
   __native_print(value)
-  None()
+  return None()
+}
+
+fn println value {
+  __native_println(value)
+  return None()
 }
 
 fn readByte {
-  __native_read_byte()
-  None()
+  let byte = __native_read_byte()
+  if __native_is_nil(byte) {
+    return None()
+  }
+  return Some(byte)
 }
 
 fn readLine {
-  __native_read_line()
-  None()
+  let line = __native_read_line()
+  if __native_is_nil(line) {
+    return None() 
+  }
+  return Some(line)
 }

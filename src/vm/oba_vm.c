@@ -518,23 +518,25 @@ static ObaInterpretResult run(ObaVM* vm) {
     }
 
     CASE_OP(JUMP_IF_FALSE) : {
-      if (!IS_BOOL(peek(vm, 1))) {
+      Value condValue = pop(vm);
+      if (!IS_BOOL(condValue)) {
         obaTypeError(vm, "boolean");
         RUNTIME_ERROR();
       }
       int jump = READ_SHORT();
-      bool cond = AS_BOOL(peek(vm, 1));
+      bool cond = AS_BOOL(condValue);
       if (!cond) vm->frame->ip += jump;
       DISPATCH();
     }
 
     CASE_OP(JUMP_IF_TRUE) : {
-      if (!IS_BOOL(peek(vm, 1))) {
+      Value condValue = pop(vm);
+      if (!IS_BOOL(condValue)) {
         obaTypeError(vm, "boolean");
         RUNTIME_ERROR();
       }
       int jump = READ_SHORT();
-      bool cond = AS_BOOL(peek(vm, 1));
+      bool cond = AS_BOOL(condValue);
       if (cond) vm->frame->ip += jump;
       DISPATCH();
     }
