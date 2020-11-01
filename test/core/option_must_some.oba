@@ -1,0 +1,5 @@
+import "option"
+import "system"
+
+let some = option::Some(1)
+system::print(1 == option::must(some)) // expect: true

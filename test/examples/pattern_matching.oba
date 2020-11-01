@@ -41,14 +41,14 @@ system::print(area) // expect: 12
 
 {
 // example: guides/language/pattern_matching mixedPatterns
-  let value = Square(4)
-  let size = match value
-    | 1             = 1
-    | 2             = 2
-    | Square l      = l * l
-    | Rectangle w h = w * h
-    | value         = value
-    ;
+let value = Square(4)
+let size = match value
+  | 1             = 1
+  | 2             = 2
+  | Square l      = l * l
+  | Rectangle w h = w * h
+  | value         = value
+  ;
 
 system::print(size) // Prints: 16
 // end example

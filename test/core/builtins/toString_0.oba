@@ -1,0 +1,2 @@
+debug toString() // expect runtime error: expected 1 argument but got 0
+
