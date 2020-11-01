@@ -459,6 +459,19 @@ static ObaInterpretResult run(ObaVM* vm) {
       DISPATCH();
     }
 
+    CASE_OP(MODULO) : {
+      if (IS_NUMBER(peek(vm, 1)) && IS_NUMBER(peek(vm, 2))) {
+        int b = AS_NUMBER(pop(vm));
+        int a = AS_NUMBER(pop(vm));
+        push(vm, OBA_NUMBER((double)(a % b)));
+      } else {
+        obaErrorf(vm, "Expected numeric or string operands");
+        RUNTIME_ERROR();
+      }
+
+      DISPATCH();
+    }
+
     CASE_OP(NOT) : {
       if (!IS_BOOL(peek(vm, 1))) {
         obaTypeError(vm, "boolean");

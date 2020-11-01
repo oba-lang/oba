@@ -1,0 +1,77 @@
+// List is an ordered sequence of values.
+// * Empty creates an empty list
+// * Cons creates a list by adding x to the list, xs.
+data List = Empty | Cons x xs
+
+// Append adds an item to the end of a list.
+fn append x xs = match xs
+  | Empty     = Cons(x, Empty())
+  | Cons y ys = Cons(y, append(x, ys))
+  ;
+
+// Length returns the length of a list.
+fn length xs  = match xs
+  | Empty     = 0
+  | Cons _ ys = 1 + length(ys)
+  ;
+
+// Where returns the items of xs for which `f(x)` returns true.
+fn where f xs = match xs
+  | Empty      = xs
+  | Cons y ys  = match f(y)
+    | true = Cons(y, where(f,ys))
+    | false = where(f, ys)
+    ;;
+
+// Head returns the first item in xs.
+//
+// Panics if xs is empty.
+fn head xs = match xs
+  | Empty    = panic("list is empty")
+  | Cons x _ = x
+  ;
+
+// Tail returns all of the items after the first item in xs.
+//
+// If xs is empty or has length 1, the empty list is returned.
+fn tail xs = match xs
+  | Empty     = xs
+  | Cons _ ys = ys
+  ;
+
+// Concate appends the list ys to the list xs.
+fn concat xs ys = match xs
+  | Empty     = ys
+  | Cons x xs = Cons(x, concat(xs, ys))
+  ;
+
+// Format formats xs as a string 'x1,x2,...,xN'.
+fn format xs = match xs
+  | Empty     = ""
+  | Cons x xs = match xs
+    | Empty     = "%(x)"
+    | Cons y ys = "%(x)," + format(xs)
+    ;;
+
+// Quicksort sorts a list using the quicksort algorithm.
+fn quicksort xs {
+  if length(xs) == 0 {
+     return xs
+  }
+
+  let x = head(xs)
+  let rest = tail(xs)
+
+  fn lte v = v <= x
+  fn gte v = v >= x
+
+  let lesser = quicksort(where(lte, rest))
+  let greater = quicksort(where(gte, rest))
+  let middle = Cons(x, Empty())
+
+  return concat(lesser, concat(middle, greater))
+}
+
+// Sort sorts a list.
+fn sort xs = quicksort(xs)
+
