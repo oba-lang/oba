@@ -43,7 +43,7 @@ value, while the `Some` constructor is used to signify the presence of a value:
 
 <!-- example option -->
 
-The `Option` data type is visible to all Oba programs. It can optionally (hehe)
+The `Option` data type is visible to all Oba programs. It can optionally (ha)
 be imported from the "option" module:
 
 <!-- example importOption -->
