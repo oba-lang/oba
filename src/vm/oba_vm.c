@@ -243,7 +243,7 @@ ObjClosure* compileInModule(ObaVM* vm, Value value, const char* source) {
 
 // TODO(kendal): If the module is already loaded, bail early.
 // TODO(kendal): Handle circular imports.
-static ObjClosure* importModule(ObaVM* vm, Value name) {
+static bool importModule(ObaVM* vm, Value name) {
   name = resolveModule(vm, name);
 
   const char* source = NULL;
@@ -260,7 +260,13 @@ static ObjClosure* importModule(ObaVM* vm, Value name) {
 
   if (source == NULL) return NULL;
 
-  return compileInModule(vm, name, source);
+  ObjClosure* moduleClosure = compileInModule(vm, name, source);
+  if (moduleClosure == NULL) {
+    return false;
+  }
+
+  push(vm, OBJ_VAL(moduleClosure));
+  return callValue(vm, OBJ_VAL(moduleClosure), 0);
 }
 
 static void return_(ObaVM* vm) {
@@ -694,13 +700,10 @@ static ObaInterpretResult run(ObaVM* vm) {
 
     CASE_OP(IMPORT_MODULE) : {
       Value name = READ_CONSTANT();
-      ObjClosure* moduleClosure = importModule(vm, name);
-      if (moduleClosure == NULL) {
+      if (!importModule(vm, name)) {
         obaErrorf(vm, "Could not import module '%s'", AS_CSTRING(name));
         RUNTIME_ERROR();
       }
-      push(vm, OBJ_VAL(moduleClosure));
-      callValue(vm, OBJ_VAL(moduleClosure), 0);
       DISPATCH();
     }
 
@@ -731,7 +734,7 @@ static ObaInterpretResult run(ObaVM* vm) {
 #undef DEBUG_TRACE_INSTRUCTIONS
 }
 
-ObaInterpretResult obaInterpret(ObaVM* vm, const char* source) {
+ObaInterpretResult interpret(ObaVM* vm, const char* source) {
   ObjModule* module = newModule(vm, copyString(vm, "main", 4));
   ObjFunction* function = obaCompile(vm, module, source);
   if (function == NULL) {
@@ -747,4 +750,12 @@ ObaInterpretResult obaInterpret(ObaVM* vm, const char* source) {
   push(vm, OBJ_VAL(closure));
   callValue(vm, OBJ_VAL(closure), 0);
   return run(vm);
+}
+
+ObaInterpretResult obaInterpret(ObaVM* vm, const char* source) {
+  vm->allowGlobals = true;
+  interpret(vm, obaGlobalsModSource());
+  vm->allowGlobals = false;
+
+  return interpret(vm, source);
 }

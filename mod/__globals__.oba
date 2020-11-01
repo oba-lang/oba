@@ -1,0 +1,5 @@
+import "option"
+
+__native_global("None", option::None)
+__native_global("Some", option::Some)
+__native_global("must", option::must)

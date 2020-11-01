@@ -97,12 +97,25 @@ Value toStringNative(ObaVM* vm, int argc, Value* argv) {
   return OBJ_VAL(copyString(vm, buf, length));
 }
 
+// Exports a symbol from a module as a VM global, available to all modules.
+// This can only be called by the builtin module which is packaged with the VM.
+Value globalNative(ObaVM* vm, int argc, Value* argv) {
+  if (vm->allowGlobals) {
+    ASSERT_ARITY(vm, argc, 2);
+    tableSet(vm->globals, AS_STRING(argv[0]), argv[1]);
+  } else {
+    obaErrorf(vm, "illegal global definition");
+  }
+  return NIL_VAL;
+}
+
 Builtin __builtins__[] = {
     {"__native_sleep", &sleepNative},
     {"__native_now", &nowNative},
     {"__native_read_byte", &readByteNative},
     {"__native_read_line", &readLineNative},
     {"__native_print", &printNative},
+    {"__native_global", &globalNative},
     {"isNil", &isNilNative},
     {"toString", &toStringNative},
     {"panic", &panicNative},
