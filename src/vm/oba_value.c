@@ -229,7 +229,17 @@ void freeObject(Obj* obj) {
   case OBJ_MODULE: {
     ObjModule* module = (ObjModule*)obj;
     freeTable(module->variables);
+    free(module->variables);
     FREE(ObjModule, obj);
+    break;
+  }
+  case OBJ_CTOR:
+    FREE(ObjCtor, obj);
+    break;
+  case OBJ_INSTANCE: {
+    ObjInstance* instance = (ObjInstance*)obj;
+    FREE_ARRAY(Value, instance->fields, instance->ctor->arity);
+    FREE(ObjInstance, obj);
     break;
   }
   }
@@ -322,6 +332,8 @@ bool objectsEqual(Value ao, Value bo) {
     NativeFn b = AS_NATIVE(bo);
     return a == b;
   }
+  case OBJ_CTOR:
+    return AS_CTOR(ao) == AS_CTOR(bo);
   case OBJ_INSTANCE: {
     ObjInstance* a = AS_INSTANCE(ao);
     ObjInstance* b = AS_INSTANCE(bo);
@@ -395,6 +407,8 @@ void initTable(Table* table) {
   table->entries = NULL;
 }
 
+// Frees the memory held by all table entries. This does not free the table
+// pointer itself.
 void freeTable(Table* table) {
   FREE_ARRAY(Entry, table->entries, table->capacity);
   initTable(table);

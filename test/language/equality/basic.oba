@@ -1,0 +1,29 @@
+// Numbers
+debug 1 == 1 // expect: true
+debug 1 == 2 // expect: false
+debug 1 == None() // expect: false
+debug 1 == "" // expect: false
+
+// Strings
+debug "" == "" // expect: true
+debug "" == "a"// expect: false
+debug "" == None() // expect: false
+
+// Constructors
+debug None == None // expect: true
+debug Some == Some // expect: true
+debug None == Some // expect: false
+
+data Tree = Leaf value | Branch tree tree
+let treeA = Branch(Leaf(1), Leaf(2))
+let treeB = Branch(Leaf(2), Leaf(1))
+let treeC = treeA
+
+debug treeA == treeB // expect: false
+debug treeA == treeC // expect: true
+
+// Instances
+debug None() == None() // expect: true
+debug Some(1) == Some(1) // expect: true
+debug None() == Some(1) // expect: false
+debug Some(1) == Some("1") // expect: false
