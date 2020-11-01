@@ -237,7 +237,6 @@ void freeObject(Obj* obj) {
 
 DEFINE_BUFFER(Byte, uint8_t)
 DEFINE_BUFFER(Value, Value)
-DEFINE_BUFFER(String, ObjString*)
 
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   ObjString* string = ALLOCATE_OBJ(vm, ObjString, OBJ_STRING);

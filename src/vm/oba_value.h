@@ -168,7 +168,6 @@ typedef struct {
 
 DECLARE_BUFFER(Byte, uint8_t);
 DECLARE_BUFFER(Value, Value);
-DECLARE_BUFFER(String, ObjString*);
 
 static inline bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;

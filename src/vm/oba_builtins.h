@@ -9,6 +9,8 @@
 #include "oba_value.h"
 #include "oba_vm.h"
 
+// Native Functions -----------------------------------------------------------
+
 #define ASSERT_ARITY(vm, argc, arity)                                          \
   do {                                                                         \
     if ((argc) != (arity)) {                                                   \
@@ -106,6 +108,8 @@ Builtin __builtins__[] = {
     {"panic", &panicNative},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
+
+// Core Modules ----------------------------------------------------------------
 
 typedef const char* (*SourceLoader)();
 
