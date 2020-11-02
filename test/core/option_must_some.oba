@@ -1,4 +1,4 @@
 import "system"
 
 let some = Some(1)
-system::print(1 == must(some)) // expect: true
+system::println(1 == must(some)) // expect: true

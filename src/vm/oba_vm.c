@@ -7,6 +7,7 @@
 #include "oba.h"
 #include "oba_builtins.h"
 #include "oba_common.h"
+#include "oba_compiler.h"
 #include "oba_function.h"
 #include "oba_vm.h"
 
@@ -17,13 +18,63 @@
 // The size of the buffer used to format error messages.
 #define MAX_ERROR_SIZE 1024
 
-// VM -------------------------------------------------------------------------
+// VM private helpers ---------------------------------------------------------
+
+static void resetStack(ObaVM* vm) { vm->stackTop = vm->stack; }
+
+static void ensureStack(ObaVM* vm, int needed) {
+  if (vm->stackCapacity >= needed) return;
+
+  int oldCapacity = vm->stackCapacity;
+  while (vm->stackCapacity < needed) {
+    vm->stackCapacity = GROW_CAPACITY(vm->stackCapacity);
+  }
+
+  Value* oldStack = vm->stack;
+  vm->stack = GROW_ARRAY(vm, Value, vm->stack, oldCapacity, vm->stackCapacity);
+
+  // If the reallocation moved the stack, we need to fix up any pointers into
+  // the old stack to point at the new one.
+  if (vm->stack != oldStack) {
+    // Stack top.
+    vm->stackTop = vm->stack + (int)(vm->stackTop - oldStack);
+
+    // Call frame slots.
+    int frameCount = vm->frame - vm->frames;
+    for (int i = 0; i < frameCount; i++) {
+      CallFrame* frame = &vm->frames[i];
+      frame->slots = vm->stack + (int)(frame->slots - oldStack);
+    }
+
+    // Open upvalues.
+    ObjUpvalue* upvalue = vm->openUpvalues;
+    while (upvalue != NULL) {
+      upvalue->location = vm->stack + (int)(upvalue->location - oldStack);
+      upvalue = upvalue->next;
+    }
+  }
+
+  if (oldCapacity == 0) {
+    resetStack(vm);
+  }
+}
 
 static Value peek(ObaVM* vm, int lookahead) {
   return *(vm->stackTop - lookahead);
 }
 
 static void push(ObaVM* vm, Value value) {
+  if (vm->stackCapacity == 0) {
+    if (IS_OBJ(value)) obaPushRoot(vm, AS_OBJ(value));
+    ensureStack(vm, MIN_STACK_CAPACITY);
+    if (IS_OBJ(value)) obaPopRoot(vm);
+  } else {
+    int count = (int)(vm->stackTop - vm->stack);
+    if (count + 1 > vm->stackCapacity) {
+      ensureStack(vm, count + 1);
+    }
+  }
+
   *vm->stackTop = value;
   vm->stackTop++;
 }
@@ -36,32 +87,9 @@ static Value pop(ObaVM* vm) {
 static void defineNative(ObaVM* vm, const char* name, NativeFn function) {
   push(vm, OBJ_VAL(copyString(vm, name, (int)strlen(name))));
   push(vm, OBJ_VAL(newNative(vm, function)));
-  tableSet(vm->globals, AS_STRING(vm->stack[0]), vm->stack[1]);
+  tableSet(vm, vm->globals, AS_STRING(peek(vm, 2)), peek(vm, 1));
   pop(vm);
   pop(vm);
-}
-
-static void resetStack(ObaVM* vm) { vm->stackTop = vm->stack; }
-
-void obaErrorf(ObaVM* vm, const char* format, ...) {
-  char buf[MAX_ERROR_SIZE];
-
-  va_list args;
-  va_start(args, format);
-  int length = vsprintf(buf, format, args);
-  va_end(args);
-
-  vm->error = OBJ_VAL(copyString(vm, buf, length));
-}
-
-void obaTypeError(ObaVM* vm, const char* expected) {
-  obaErrorf(vm, "expected a %s value", expected);
-}
-
-void obaArityError(ObaVM* vm, int want, int got) {
-  char* arguments = "argument";
-  if (want > 1) arguments = "arguments";
-  obaErrorf(vm, "expected %d %s but got %d", want, arguments, got);
 }
 
 void runtimeError(ObaVM* vm) {
@@ -122,7 +150,7 @@ static bool call(ObaVM* vm, ObjClosure* closure, int arity) {
 
 static bool callNative(ObaVM* vm, NativeFn native, int arity) {
   Value result = native(vm, arity, vm->stackTop - arity);
-  vm->stackTop -= arity;
+  for (int i = 0; i < arity; i++) pop(vm);
   pop(vm); // native.
   push(vm, result);
   return valuesEqual(vm->error, NIL_VAL);
@@ -229,16 +257,26 @@ static Value resolveModule(ObaVM* vm, Value name) {
 
 ObjClosure* compileInModule(ObaVM* vm, Value value, const char* source) {
   ObjString* name = AS_STRING(value);
+  obaPushRoot(vm, (Obj*)name);
   ObjModule* module = newModule(vm, name);
+  obaPushRoot(vm, (Obj*)module);
+
   ObjFunction* function = obaCompile(vm, module, source);
   if (function == NULL) {
     return NULL;
   }
+  obaPushRoot(vm, (Obj*)function);
 
   // Store the module as a global variable of the current module.
-  tableSet(vm->frame->closure->function->module->variables, module->name,
+  tableSet(vm, vm->frame->closure->function->module->variables, module->name,
            OBJ_VAL(module));
-  return newClosure(vm, function);
+
+  ObjClosure* closure = newClosure(vm, function);
+
+  obaPopRoot(vm); // function.
+  obaPopRoot(vm); // module.
+  obaPopRoot(vm); // module name.
+  return closure;
 }
 
 // TODO(kendal): If the module is already loaded, bail early.
@@ -273,7 +311,6 @@ static void return_(ObaVM* vm) {
   Value value = pop(vm);
   closeUpvalue(vm, vm->frame->slots);
 
-  // -1 because the function itself is right before the slot pointer.
   vm->stackTop = vm->frame->slots - 1;
   push(vm, value);
   vm->frame->closure = NULL;
@@ -283,10 +320,10 @@ static void return_(ObaVM* vm) {
 }
 
 static void concatenate(ObaVM* vm) {
-  ObjString* b = AS_STRING(pop(vm));
-  ObjString* a = AS_STRING(pop(vm));
+  ObjString* b = AS_STRING(peek(vm, 1));
+  ObjString* a = AS_STRING(peek(vm, 2));
 
-  char* chars = ALLOCATE(char, b->length + a->length + 1);
+  char* chars = ALLOCATE(vm, char, b->length + a->length + 1);
   int length = b->length + a->length;
 
   memcpy(chars, a->chars, a->length);
@@ -294,43 +331,18 @@ static void concatenate(ObaVM* vm) {
   chars[length] = '\0';
 
   ObjString* result = takeString(vm, chars, length);
+  pop(vm);
+  pop(vm);
   push(vm, OBJ_VAL(result));
-}
-
-ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
-  ObaVM* vm = (ObaVM*)realloc(NULL, sizeof(*vm));
-  memset(vm, 0, sizeof(ObaVM));
-
-  vm->openUpvalues = NULL;
-  vm->objects = NULL;
-  vm->frame = vm->frames;
-  vm->error = NIL_VAL;
-
-  vm->globals = (Table*)realloc(NULL, sizeof(Table));
-  initTable(vm->globals);
-
-  resetStack(vm);
-  registerBuiltins(vm, builtins, builtinsLength);
-  return vm;
 }
 
 static void freeObjects(ObaVM* vm) {
   Obj* obj = vm->objects;
   while (obj != NULL) {
     Obj* next = obj->next;
-    freeObject(obj);
+    freeObject(vm, obj);
     obj = next;
   }
-}
-
-static bool obaHasError(ObaVM* vm) { return !valuesEqual(vm->error, NIL_VAL); }
-
-void obaFreeVM(ObaVM* vm) {
-  // Any non-object values held in object fields will be freed by this.
-  freeObjects(vm);
-  freeTable(vm->globals);
-  free(vm->globals);
-  free(vm);
 }
 
 static ObaInterpretResult run(ObaVM* vm) {
@@ -556,16 +568,19 @@ static ObaInterpretResult run(ObaVM* vm) {
 
     CASE_OP(JUMP_IF_NOT_MATCH) : {
       int jump = READ_SHORT();
-      Value lambda = pop(vm);
-      Value pattern = pop(vm);
-      Value value = peek(vm, 1);
+      Value lambda = peek(vm, 1);
+      Value pattern = peek(vm, 2);
+      Value value = peek(vm, 3);
 
       if (!match(vm, pattern, value)) {
         vm->frame->ip += jump;
+        pop(vm); // lambda.
+        pop(vm); // pattern.
         DISPATCH();
       }
-
-      pop(vm); // Pop `value` off the stack.
+      pop(vm); // lambda.
+      pop(vm); // pattern.
+      pop(vm); // value.
       push(vm, lambda);
       destructure(vm, pattern, value);
       DISPATCH();
@@ -578,8 +593,10 @@ static ObaInterpretResult run(ObaVM* vm) {
 
     CASE_OP(DEFINE_GLOBAL) : {
       ObjString* name = READ_STRING();
-      tableSet(vm->frame->closure->function->module->variables, name,
+      obaPushRoot(vm, (Obj*)name);
+      tableSet(vm, vm->frame->closure->function->module->variables, name,
                peek(vm, 1));
+      obaPopRoot(vm);
       pop(vm);
       DISPATCH();
     }
@@ -724,6 +741,7 @@ static ObaInterpretResult run(ObaVM* vm) {
 
     CASE_OP(END_MODULE) : {
       // Don't pop the root module or we'll never reach OP_EXIT.
+      push(vm, NIL_VAL);
       if (vm->frame - vm->frames > 1) {
         return_(vm);
         pop(vm);
@@ -750,8 +768,153 @@ static ObaInterpretResult run(ObaVM* vm) {
 #undef DEBUG_TRACE_INSTRUCTIONS
 }
 
+void obaPushRoot(ObaVM* vm, Obj* obj) {
+  ASSERT(obj != NULL, "Can't push NULL GC root");
+  ASSERT(vm->tempRootsCount + 1 < TEMP_ROOTS_MAX,
+         "Too many temporary GC roots");
+  vm->tempRoots[vm->tempRootsCount++] = obj;
+}
+
+void obaPopRoot(ObaVM* vm) {
+  ASSERT(vm->tempRootsCount != 0, "No temp roots to release");
+  vm->tempRootsCount--;
+}
+
+static void markRoots(ObaVM* vm) {
+  for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
+    obaGrayValue(vm, *slot);
+  }
+
+  for (int i = 0; i < vm->tempRootsCount; i++) {
+    obaGrayObject(vm, vm->tempRoots[i]);
+  }
+
+  for (CallFrame* frame = vm->frames; frame <= vm->frame; frame++) {
+    obaGrayObject(vm, (Obj*)frame->closure);
+  }
+
+  for (ObjUpvalue* uv = vm->openUpvalues; uv != NULL; uv = uv->next) {
+    obaGrayObject(vm, (Obj*)uv);
+  }
+
+  obaGrayTable(vm, vm->globals);
+  markCompilerRoots(vm, vm->compiler);
+}
+
+static void blackenRoots(ObaVM* vm) {
+  while (vm->grayCount > 0) {
+    Obj* obj = vm->grayStack[--vm->grayCount];
+    blackenObject(vm, obj);
+  }
+}
+
+static void sweepGarbage(ObaVM* vm) {
+  Obj* previous = NULL;
+  Obj* object = vm->objects;
+  while (object != NULL) {
+    if (object->isMarked) {
+      object->isMarked = false;
+      previous = object;
+      object = object->next;
+      continue;
+    }
+
+    Obj* unreached = object;
+    object = object->next;
+    if (previous != NULL) {
+      previous->next = object;
+    } else {
+      vm->objects = object;
+    }
+    freeObject(vm, unreached);
+  }
+}
+
+// VM public API implementation ------------------------------------------------
+
+void obaCollectGarbage(ObaVM* vm) {
+#ifdef DEBUG_LOG_GC
+  printf("-- gc begin\n");
+  size_t before = vm->bytesAllocated;
+#endif
+  markRoots(vm);
+  blackenRoots(vm);
+  sweepGarbage(vm);
+  vm->nextGC = vm->bytesAllocated * GC_HEAP_GROW_FACTOR;
+
+#ifdef DEBUG_LOG_GC
+  printf("-- gc end\n");
+  printf("   collected %ld bytes (from %ld to %ld) next at %ld\n",
+         before - vm->bytesAllocated, before, vm->bytesAllocated, vm->nextGC);
+#endif
+}
+
+void obaErrorf(ObaVM* vm, const char* format, ...) {
+  char buf[MAX_ERROR_SIZE];
+
+  va_list args;
+  va_start(args, format);
+  int length = vsprintf(buf, format, args);
+  va_end(args);
+
+  vm->error = OBJ_VAL(copyString(vm, buf, length));
+}
+
+void obaTypeError(ObaVM* vm, const char* expected) {
+  obaErrorf(vm, "expected a %s value", expected);
+}
+
+void obaArityError(ObaVM* vm, int want, int got) {
+  char* arguments = "argument";
+  if (want != 1) arguments = "arguments";
+  obaErrorf(vm, "expected %d %s but got %d", want, arguments, got);
+}
+
+bool obaHasError(ObaVM* vm) { return !valuesEqual(vm->error, NIL_VAL); }
+
+ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
+  ObaVM* vm = (ObaVM*)realloc(NULL, sizeof(*vm));
+  memset(vm, 0, sizeof(ObaVM));
+
+  vm->compiler = NULL;
+  vm->openUpvalues = NULL;
+
+  vm->objects = NULL;
+  vm->grayCount = 0;
+  vm->grayCapacity = 0;
+  vm->grayStack = NULL;
+  vm->tempRootsCount = 0;
+  vm->bytesAllocated = 0;
+  vm->nextGC = 1024 * 1024;
+
+  resetStack(vm);
+  vm->stack = NULL;
+  vm->stackCapacity = 0;
+
+  vm->frame = vm->frames;
+  vm->error = NIL_VAL;
+
+  vm->globals = (Table*)realloc(NULL, sizeof(Table));
+  initTable(vm->globals);
+
+  registerBuiltins(vm, builtins, builtinsLength);
+  return vm;
+}
+
+void obaFreeVM(ObaVM* vm) {
+  // Any non-object values held in object fields will be freed by this.
+  freeObjects(vm);
+  freeTable(vm, vm->globals);
+  FREE_ARRAY(vm, Value, vm->stack, vm->stackCapacity);
+  free(vm->globals);
+  free(vm->grayStack);
+  free(vm);
+}
+
 ObaInterpretResult interpret(ObaVM* vm, const char* source) {
   ObjModule* module = newModule(vm, copyString(vm, "main", 4));
+  obaPushRoot(vm, (Obj*)module);
+
   ObjFunction* function = obaCompile(vm, module, source);
   if (function == NULL) {
     return OBA_RESULT_COMPILE_ERROR;
@@ -760,9 +923,11 @@ ObaInterpretResult interpret(ObaVM* vm, const char* source) {
     return OBA_RESULT_SUCCESS;
   }
 
+  obaPopRoot(vm); // module.
+
   push(vm, OBJ_VAL(function));
   ObjClosure* closure = newClosure(vm, function);
-  pop(vm);
+  pop(vm); // function.
   push(vm, OBJ_VAL(closure));
   callValue(vm, OBJ_VAL(closure), 0);
   return run(vm);

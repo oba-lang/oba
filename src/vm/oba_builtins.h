@@ -101,7 +101,7 @@ Value __native_str(ObaVM* vm, int argc, Value* argv) {
 Value __native_global(ObaVM* vm, int argc, Value* argv) {
   if (vm->allowGlobals) {
     ASSERT_ARITY(vm, argc, 2);
-    tableSet(vm->globals, AS_STRING(argv[0]), argv[1]);
+    tableSet(vm, vm->globals, AS_STRING(argv[0]), argv[1]);
   } else {
     obaErrorf(vm, "illegal global definition");
   }

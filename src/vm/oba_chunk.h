@@ -16,9 +16,9 @@ typedef struct {
 void initChunk(Chunk*);
 
 // Frees the memory held by a [Chunk] previously allocate with [initChunk].
-void freeChunk(Chunk*);
+void freeChunk(ObaVM* vm, Chunk*);
 
 // Writes a byte to the given [Chunk], allocating if necessary.
-void writeChunk(Chunk*, uint8_t, int);
+void writeChunk(ObaVM* vm, Chunk*, uint8_t, int);
 
 #endif
