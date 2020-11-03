@@ -113,17 +113,28 @@ Value __native_is_nil(ObaVM* vm, int argc, Value* argv) {
   return OBA_BOOL(valuesEqual(argv[0], NIL_VAL));
 }
 
+Value __native_frame_depth(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 0);
+  return OBA_NUMBER((double)(vm->frame - vm->frames));
+}
+
 Builtin __builtins__[] = {
+    // Host system interaction.
     {"__native_sleep", &__native_sleep},
     {"__native_now", &__native_now},
     {"__native_read_byte", &__native_read_byte},
     {"__native_read_line", &__native_read_line},
     {"__native_print", &__native_print},
     {"__native_println", &__native_println},
+
+    // VM interaction.
     {"__native_global", &__native_global},
     {"__native_is_nil", &__native_is_nil},
-    {"str", &__native_str},
+    {"__native_frame_depth", &__native_frame_depth},
     {"panic", &__native_panic},
+
+    // Utilities.
+    {"str", &__native_str},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 

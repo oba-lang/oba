@@ -59,6 +59,10 @@ static void ensureStack(ObaVM* vm, int needed) {
   }
 }
 
+static void growStack(ObaVM* vm) {
+  ensureStack(vm, GROW_CAPACITY(vm->stackCapacity));
+}
+
 static Value peek(ObaVM* vm, int lookahead) {
   return *(vm->stackTop - lookahead);
 }
@@ -68,15 +72,15 @@ static void push(ObaVM* vm, Value value) {
     if (IS_OBJ(value)) obaPushRoot(vm, AS_OBJ(value));
     ensureStack(vm, MIN_STACK_CAPACITY);
     if (IS_OBJ(value)) obaPopRoot(vm);
-  } else {
-    int count = (int)(vm->stackTop - vm->stack);
-    if (count + 1 > vm->stackCapacity) {
-      ensureStack(vm, count + 1);
-    }
   }
 
   *vm->stackTop = value;
   vm->stackTop++;
+
+  int count = (int)(vm->stackTop - vm->stack);
+  if (count == vm->stackCapacity) {
+    growStack(vm);
+  }
 }
 
 static Value pop(ObaVM* vm) {
@@ -131,14 +135,33 @@ static void registerBuiltins(ObaVM* vm, Builtin* builtins, int builtinsLength) {
   }
 }
 
+static bool isTailCall(ObaVM* vm, ObjClosure* closure) {
+  CallFrame* frame = vm->frame;
+  return frame->ip != NULL && (uint8_t)(*frame->ip) == OP_RETURN &&
+         objectsEqual(OBJ_VAL(closure->function),
+                      OBJ_VAL(frame->closure->function));
+}
+
+static void reuseStackSlots(ObaVM* vm, int arity) {
+  Value* oldStackTop = vm->frame->slots + arity;
+  for (int i = 1; i <= arity; i++) {
+    *(oldStackTop - i) = *(vm->stackTop - i);
+  }
+  vm->stackTop = oldStackTop;
+}
 static bool call(ObaVM* vm, ObjClosure* closure, int arity) {
   if (arity != closure->function->arity) {
     obaArityError(vm, closure->function->arity, arity);
     return false;
   }
 
-  vm->frame++;
-  if (vm->frame - vm->frames > FRAMES_MAX) {
+  if (isTailCall(vm, closure)) {
+    reuseStackSlots(vm, arity);
+  } else {
+    vm->frame++;
+  }
+
+  if (vm->frame - vm->frames >= FRAMES_MAX) {
     obaErrorf(vm, "Too many nested function calls");
     return false;
   }
@@ -153,6 +176,7 @@ static bool callNative(ObaVM* vm, NativeFn native, int arity) {
   for (int i = 0; i < arity; i++) pop(vm);
   pop(vm); // native.
   push(vm, result);
+  obaCollectGarbage(vm);
   return valuesEqual(vm->error, NIL_VAL);
 }
 
@@ -622,7 +646,7 @@ static ObaInterpretResult run(ObaVM* vm) {
       Value oldValue = vm->frame->slots[slot];
       Value newValue = peek(vm, 1);
       if (canAssignType(oldValue, newValue)) {
-        vm->frame->slots[slot] = peek(vm, 1);
+        vm->frame->slots[slot] = newValue;
         DISPATCH();
       }
 
@@ -770,8 +794,7 @@ static ObaInterpretResult run(ObaVM* vm) {
 
 void obaPushRoot(ObaVM* vm, Obj* obj) {
   ASSERT(obj != NULL, "Can't push NULL GC root");
-  ASSERT(vm->tempRootsCount + 1 < TEMP_ROOTS_MAX,
-         "Too many temporary GC roots");
+  ASSERT(vm->tempRootsCount + 1 < TEMP_ROOTS_MAX, "Too many temp GC roots");
   vm->tempRoots[vm->tempRootsCount++] = obj;
 }
 
@@ -798,6 +821,7 @@ static void markRoots(ObaVM* vm) {
   }
 
   obaGrayTable(vm, vm->globals);
+  obaGrayValue(vm, vm->error);
   markCompilerRoots(vm, vm->compiler);
 }
 
@@ -892,6 +916,7 @@ ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
   vm->stackCapacity = 0;
 
   vm->frame = vm->frames;
+
   vm->error = NIL_VAL;
 
   vm->globals = (Table*)realloc(NULL, sizeof(Table));
