@@ -1,0 +1,24 @@
+// Tail recursive function. Recursive invocations should not allocate a new
+// call frame.
+fn tailRecurse depth {
+  if depth == 0 {
+    debug __native_frame_depth()
+    return
+  }  
+
+  return tailRecurse(depth - 1)
+}
+
+fn recurse depth {
+  if depth == 0 {
+    debug __native_frame_depth()
+    return
+  }  
+  let _ = recurse(depth - 1)
+}
+
+
+tailRecurse(10) // expect: 2
+// 2 because we always have at least one frame for the main script.
+
+recurse(10) // expect: 12

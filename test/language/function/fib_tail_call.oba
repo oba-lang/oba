@@ -1,0 +1,7 @@
+fn fib_tail n a b {
+  if n == 0 return a
+  if n == 1 return b
+  return fib_tail(n-1, b, a + b)
+}
+
+debug fib_tail(13, 0, 1) // expect: 233

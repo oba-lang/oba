@@ -1,6 +1,7 @@
 import "list"
 import "system"
 
+
 {
   let xs = list::Empty()
 
@@ -14,8 +15,8 @@ import "system"
   fn odd x = x % 2 != 0
 
   let len = list::length(xs)
-  let odds = list::format(list::where(odd, xs))
   let concatenated = list::format(list::concat(xs, xs))
+  let odds = list::format(list::where(odd, xs))
   let values = list::format(xs)
   let sorted = list::format(list::sort(xs))
 

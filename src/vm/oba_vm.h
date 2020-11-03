@@ -12,10 +12,11 @@
 // The maximum number of call-frames.
 // TODO(kendal): Oba code will naturally have many recursive calls, the call
 // frameStack should be dynamic.
-#define FRAMES_MAX 10000
+#define FRAMES_MAX 1024 * 1024
 
-// The maximum number of temporary GC roots at any given time.
-#define TEMP_ROOTS_MAX MIN_STACK_CAPACITY
+// The maximum number of temporary GC roots at any given time. In practice there
+// are < 10 of these at a time.
+#define TEMP_ROOTS_MAX 64
 
 #define GC_HEAP_GROW_FACTOR 2
 

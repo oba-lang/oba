@@ -4,24 +4,33 @@
 data List = Empty | Cons x xs
 
 // Append adds an item to the end of a list.
-fn append x xs = match xs
-  | Empty     = Cons(x, Empty())
-  | Cons y ys = Cons(y, append(x, ys))
-  ;
+fn append x xs {
+  let os = Cons(x, Empty())
+  let rs = reverse(xs)
+  while rs != Empty() {
+    os = Cons(head(rs), os)
+    rs = tail(rs)
+  }
+  return os
+}
 
 // Length returns the length of a list.
-fn length xs  = match xs
-  | Empty     = 0
-  | Cons _ ys = 1 + length(ys)
-  ;
+fn length xs  = _length(xs, 0)
+fn _length xs len {
+  if xs == Empty() return len
+  return _length(tail(xs), len + 1)
+}
 
 // Where returns the items of xs for which `f(x)` returns true.
-fn where f xs = match xs
-  | Empty      = xs
-  | Cons y ys  = match f(y)
-    | true = Cons(y, where(f,ys))
-    | false = where(f, ys)
-    ;;
+fn where f xs {
+ if xs == Empty() return xs
+
+ let x = head(xs)
+ xs = tail(xs)
+
+ if f(x) return Cons(x, where(f, xs))
+ return where(f, xs)
+}
 
 // Head returns the first item in xs.
 //
@@ -39,19 +48,37 @@ fn tail xs = match xs
   | Cons _ ys = ys
   ;
 
-// Concate appends the list ys to the list xs.
-fn concat xs ys = match xs
-  | Empty     = ys
-  | Cons x xs = Cons(x, concat(xs, ys))
-  ;
+// Reverse reverses a list.
+fn reverse xs {
+  let rs = Empty()
+  while xs != Empty() {
+    rs = Cons(head(xs), rs)
+    xs = tail(xs)
+  }
+  return rs
+}
+
+// Concat appends the list ys to the list xs.
+fn concat xs ys  {
+  xs = reverse(xs)
+  while xs != Empty() {
+    ys = Cons(head(xs), ys)
+    xs = tail(xs) 
+  }
+  return ys
+}
 
 // Format formats xs as a string 'x1,x2,...,xN'.
-fn format xs = match xs
-  | Empty     = ""
-  | Cons x xs = match xs
-    | Empty     = "%(x)"
-    | Cons y ys = "%(x)," + format(xs)
-    ;;
+fn format xs = _format(xs, "")
+fn _format xs string {
+  if xs == Empty() return string
+
+  let x = head(xs)
+  xs = tail(xs)
+
+  if xs == Empty() return string + "%(x)"
+  return _format(xs, string + "%(x),")
+}
 
 // Quicksort sorts a list using the quicksort algorithm.
 fn quicksort xs {

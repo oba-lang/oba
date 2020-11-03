@@ -19,7 +19,7 @@ PROJECTS := oba
 TARGET := oba
 
 INCLUDES += -I ./src/include
-ALL_CFLAGS += $(INCLUDES) -o $(TARGET) 
+ALL_CFLAGS += $(INCLUDES) -o $(TARGET) -g
 
 .PHONY: all clean docs format run test help
 

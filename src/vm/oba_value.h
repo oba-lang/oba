@@ -48,7 +48,7 @@
 
 // Maximum number of printable characters to use when formatting a Value.
 // TODO(kendal): Switch to using a growable buffer when formatting values.
-#define FORMAT_VALUE_MAX 1024
+#define FORMAT_VALUE_MAX 10000
 
 // An Oba object in heap memory.
 typedef enum {
@@ -186,10 +186,11 @@ void obaGrayValueBuffer(ObaVM*, ValueBuffer*);
 void obaGrayObject(ObaVM*, Obj*);
 void blackenObject(ObaVM*, Obj*);
 
-ObjString* copyString(ObaVM* vm, const char* chars, int length);
+bool objectsEqual(Value, Value);
 Obj* allocateObject(ObaVM* vm, size_t size, ObjType type);
 void freeObject(ObaVM*, Obj*);
 
+ObjString* copyString(ObaVM* vm, const char* chars, int length);
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash);
 ObjString* takeString(ObaVM* vm, char* chars, int length);
 
