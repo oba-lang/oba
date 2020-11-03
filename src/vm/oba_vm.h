@@ -7,16 +7,26 @@
 #include "oba_value.h"
 
 // The maximum number of values that can be held on the stack at once.
-#define STACK_MAX 256
+#define MIN_STACK_CAPACITY 1024
 
 // The maximum number of call-frames.
-#define FRAMES_MAX 256
+// TODO(kendal): Oba code will naturally have many recursive calls, the call
+// frameStack should be dynamic.
+#define FRAMES_MAX 10000
+
+// The maximum number of temporary GC roots at any given time.
+#define TEMP_ROOTS_MAX MIN_STACK_CAPACITY
+
+#define GC_HEAP_GROW_FACTOR 2
 
 struct ObaVM {
   CallFrame frames[FRAMES_MAX];
   CallFrame* frame;
 
-  Value stack[STACK_MAX];
+  struct Compiler* compiler;
+
+  int stackCapacity;
+  Value* stack;
   Value* stackTop;
 
   // Global values available to all modules.
@@ -25,7 +35,6 @@ struct ObaVM {
   // the current module, then this table.
   Table* globals;
 
-  Table* modules;
   ObjUpvalue* openUpvalues;
   Obj* objects;
 
@@ -36,6 +45,19 @@ struct ObaVM {
   // Whether the current module can define new global variables. This is used
   // internally and is automatically disabled for user code.
   bool allowGlobals;
+
+  // Fields that keep of "gray" objects during GC.
+  int grayCount;
+  int grayCapacity;
+  Obj** grayStack;
+  size_t bytesAllocated;
+  size_t nextGC;
+
+  // Temporary GC roots. These are used to prevent heap objects from being GC'd
+  // while they're being initialized - for example if they contain nested heap
+  // objects that also require allocation and may trigger GC.
+  Obj* tempRoots[TEMP_ROOTS_MAX];
+  int tempRootsCount;
 };
 
 typedef enum {
@@ -43,5 +65,8 @@ typedef enum {
 #include "oba_opcodes.h"
 #undef OPCODE
 } OpCode;
+
+void obaPopRoot(ObaVM*);
+void obaPushRoot(ObaVM*, Obj*);
 
 #endif

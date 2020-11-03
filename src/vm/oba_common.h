@@ -1,6 +1,7 @@
 #ifndef oba_common_h
 #define oba_common_h
 
+#include "oba.h"
 #include <stdlib.h>
 
 #ifdef DEBUG_MODE
@@ -30,22 +31,23 @@
 
 #define GROW_CAPACITY(cap) ((cap) < 8 ? 8 : (cap)*2)
 
-#define GROW_ARRAY(type, pointer, oldCount, newCount)                          \
-  (type*)reallocate(pointer, sizeof(type) * (oldCount),                        \
+#define GROW_ARRAY(vm, type, pointer, oldCount, newCount)                      \
+  (type*)reallocate(vm, pointer, sizeof(type) * (oldCount),                    \
                     sizeof(type) * (newCount))
 
-#define FREE_ARRAY(type, pointer, oldCount)                                    \
-  reallocate(pointer, sizeof(type) * oldCount, 0)
+#define FREE_ARRAY(vm, type, pointer, oldCount)                                \
+  reallocate(vm, pointer, sizeof(type) * oldCount, 0)
 
-#define ALLOCATE(type, count) (type*)reallocate(NULL, 0, sizeof(type) * (count))
+#define ALLOCATE(vm, type, count)                                              \
+  (type*)reallocate(vm, NULL, 0, sizeof(type) * (count))
 
 #define ALLOCATE_OBJ(vm, type, objectType)                                     \
   (type*)allocateObject(vm, sizeof(type), objectType)
 
-#define FREE(type, pointer) reallocate(pointer, sizeof(type), 0)
+#define FREE(vm, type, pointer) reallocate(vm, pointer, sizeof(type), 0)
 
 // Reallocates [pointer] from [oldSize] to [newSize].
 // If [newSize] is 0, [pointer] is freed.
-void* reallocate(void* pointer, size_t oldSize, size_t newSize);
+void* reallocate(ObaVM* vm, void* pointer, size_t oldSize, size_t newSize);
 
 #endif

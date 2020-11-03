@@ -69,7 +69,7 @@ typedef struct {
   int currentLine;
 } Parser;
 
-typedef struct Compiler {
+struct Compiler {
   struct Compiler* parent;
   ObjFunction* function;
 
@@ -81,11 +81,13 @@ typedef struct Compiler {
 
   // A pointer to the VM, used to store objects allocated during compilation.
   ObaVM* vm;
-} Compiler;
+};
 
 void initCompiler(ObaVM* vm, Compiler* compiler, Parser* parser,
                   Compiler* parent) {
+  memset(compiler, 0, sizeof(Compiler));
   compiler->vm = vm;
+  compiler->vm->compiler = compiler;
   compiler->parent = parent;
   compiler->parser = parser;
   compiler->localCount = 0;
@@ -144,7 +146,8 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
 // Bytecode -------------------------------------------------------------------
 
 static void emitByte(Compiler* compiler, int byte) {
-  writeChunk(&compiler->function->chunk, byte, compiler->parser->currentLine);
+  writeChunk(compiler->vm, &compiler->function->chunk, byte,
+             compiler->parser->currentLine);
 }
 
 static void emitOp(Compiler* compiler, OpCode code) {
@@ -154,7 +157,9 @@ static void emitOp(Compiler* compiler, OpCode code) {
 // Adds [value] the the Vm's constant pool.
 // Returns the address of the new constant within the pool.
 static int addConstant(Compiler* compiler, Value value) {
-  writeValueBuffer(&compiler->function->chunk.constants, value);
+  if (IS_OBJ(value)) obaPushRoot(compiler->vm, AS_OBJ(value));
+  writeValueBuffer(compiler->vm, &compiler->function->chunk.constants, value);
+  if (IS_OBJ(value)) obaPopRoot(compiler->vm);
   return compiler->function->chunk.constants.count - 1;
 }
 
@@ -180,9 +185,13 @@ static void emitError(Compiler* compiler, const char* format, ...) {
   int length = vsprintf(message, format, args);
   ASSERT(length < MAX_ERROR_SIZE, "Error message should not exceed buffer");
 
-  Value error = OBJ_VAL(copyString(compiler->vm, message, length));
+  ObjString* error = copyString(compiler->vm, message, length);
+  obaPushRoot(compiler->vm, (Obj*)error);
+
   emitOp(compiler, OP_ERROR);
-  emitByte(compiler, addConstant(compiler, error));
+  emitByte(compiler, addConstant(compiler, OBJ_VAL(error)));
+
+  obaPopRoot(compiler->vm);
 }
 
 static void patchJump(Compiler* compiler, int offset) {
@@ -525,33 +534,33 @@ static void readString(Compiler* compiler) {
       char nc = nextChar(compiler);
       switch (nc) {
       case '"':
-        writeByteBuffer(&buffer, '"');
+        writeByteBuffer(compiler->vm, &buffer, '"');
         break;
       case '%':
-        writeByteBuffer(&buffer, '%');
+        writeByteBuffer(compiler->vm, &buffer, '%');
         break;
       case '\\':
-        writeByteBuffer(&buffer, '\\');
+        writeByteBuffer(compiler->vm, &buffer, '\\');
         break;
       case 'n':
-        writeByteBuffer(&buffer, '\n');
+        writeByteBuffer(compiler->vm, &buffer, '\n');
         break;
       case 'r':
-        writeByteBuffer(&buffer, '\r');
+        writeByteBuffer(compiler->vm, &buffer, '\r');
         break;
       default:
         lexError(compiler, "Invalid escape character '%c'.", nc);
         break;
       }
     } else {
-      writeByteBuffer(&buffer, c);
+      writeByteBuffer(compiler->vm, &buffer, c);
     }
   }
 
   makeToken(compiler, type);
 
   Value string = OBJ_VAL(copyString(compiler->vm, buffer.values, buffer.count));
-  freeByteBuffer(&buffer);
+  freeByteBuffer(compiler->vm, &buffer);
   compiler->parser->current.value = string;
 }
 
@@ -760,8 +769,10 @@ static void constructor(Compiler* compiler, ObjString* family) {
   consume(compiler, TOK_IDENT, "Expected an identifier");
 
   Token nameToken = compiler->parser->previous;
-  ObjString* name = copyString(compiler->vm, nameToken.start, nameToken.length);
   int variable = declareVariable(compiler, nameToken);
+
+  ObjString* name = copyString(compiler->vm, nameToken.start, nameToken.length);
+  obaPushRoot(compiler->vm, (Obj*)name);
 
   // constructor names are just for show, and may be used to indicated the
   // expected type of a filed to readers. The only thing the VM keeps track of
@@ -770,23 +781,30 @@ static void constructor(Compiler* compiler, ObjString* family) {
   while (match(compiler, TOK_IDENT)) arity++;
 
   ObjCtor* ctor = newCtor(compiler->vm, family, name, arity);
+  obaPushRoot(compiler->vm, (Obj*)ctor);
 
   // This always creates a global because data types can only be declared at
   // the top-level.
   emitConstant(compiler, OBJ_VAL(ctor));
   defineVariable(compiler, variable);
+
+  obaPopRoot(compiler->vm); // name.
+  obaPopRoot(compiler->vm); // ctor.
 }
 
 static void data(Compiler* compiler) {
   consume(compiler, TOK_IDENT, "Expected an identifier.");
   ObjString* family = copyString(compiler->vm, compiler->parser->previous.start,
                                  compiler->parser->previous.length);
+  obaPushRoot(compiler->vm, (Obj*)family);
   consume(compiler, TOK_ASSIGN, "Expected '='");
 
   do {
     ignoreNewlines(compiler);
     constructor(compiler, family);
   } while (match(compiler, TOK_GUARD));
+
+  obaPopRoot(compiler->vm);
 }
 
 static void variableDeclaration(Compiler* compiler) {
@@ -921,6 +939,7 @@ static int lambda(Compiler* compiler) {
 
   ObjFunction* fn = endCompiler(&fnCompiler, "", 0);
   if (fn == NULL) return -1;
+  obaPushRoot(compiler->vm, (Obj*)fn);
 
   emitOp(compiler, OP_CLOSURE);
   emitByte(compiler, addConstant(compiler, OBJ_VAL(fn)));
@@ -929,6 +948,8 @@ static int lambda(Compiler* compiler) {
     emitByte(compiler, fnCompiler.upvalues[i].isLocal ? 1 : 0);
     emitByte(compiler, fnCompiler.upvalues[i].index);
   }
+
+  obaPopRoot(compiler->vm);
 
   return fn->arity;
 }
@@ -952,6 +973,8 @@ static void functionDefinition(Compiler* compiler) {
   ObjFunction* fn = endCompiler(&fnCompiler, name.start, name.length);
   if (fn == NULL) return;
 
+  obaPushRoot(compiler->vm, (Obj*)fn);
+
   emitOp(compiler, OP_CLOSURE);
   emitByte(compiler, addConstant(compiler, OBJ_VAL(fn)));
 
@@ -960,6 +983,8 @@ static void functionDefinition(Compiler* compiler) {
     emitByte(compiler, fnCompiler.upvalues[i].index);
   }
   defineVariable(compiler, declareVariable(compiler, name));
+
+  obaPopRoot(compiler->vm);
 }
 
 static void returnStmt(Compiler* compiler) {
@@ -1128,14 +1153,18 @@ static void member(Compiler* compiler, bool canAssign) {
   // TODO(kendal) It feels like either identifier() or variable() should be able
   // to handle this case, and member() should not be needed. Find a way to merge
   // them.
-  Value value = OBJ_VAL(copyString(compiler->vm, token.start, token.length));
-  int arg = addConstant(compiler, value);
+  ObjString* name = copyString(compiler->vm, token.start, token.length);
+  obaPushRoot(compiler->vm, (Obj*)name);
+
+  int arg = addConstant(compiler, OBJ_VAL(name));
   emitOp(compiler, OP_GET_IMPORTED_VARIABLE);
   emitByte(compiler, (uint8_t)arg);
 
   if (peek(compiler) == TOK_LPAREN) {
     functionCall(compiler, canAssign);
   }
+
+  obaPopRoot(compiler->vm);
 }
 
 static void pattern(Compiler* compiler) {
@@ -1299,6 +1328,7 @@ static void infixOp(Compiler* compiler, bool canAssign) {
 ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
                          int debugNameLength) {
   if (compiler->parser->hasError) {
+    compiler->vm->compiler = compiler->parent;
     return NULL;
   }
 
@@ -1307,19 +1337,14 @@ ObjFunction* endCompiler(Compiler* compiler, const char* debugName,
 
   if (compiler->parent == NULL) {
     emitOp(compiler, OP_END_MODULE);
-  } else {
-    // Make sure we don't leave the parent compiler's parser "behind".
-
-    // TODO(kendal): Consider just keeping a stack of compilers on the VM,
-    // which would also prevent us from having to fixup the VM's ip and frame
-    // before executing the compiled code.
-    compiler->parent->parser = compiler->parser;
   }
 
   // There is always an OP_END_MODULE or OP_RETURN instruction before this.
   // It is only reached when the module we just compiled is not the "main"
   // module.
   emitOp(compiler, OP_EXIT);
+
+  compiler->vm->compiler = compiler->parent;
   return compiler->function;
 }
 
@@ -1329,6 +1354,7 @@ ObjFunction* compile(ObaVM* vm, ObjModule* module, const char* source,
   if (strncmp(source, "\xEF\xBB\xBF", 3) == 0) source += 3;
 
   Parser parser;
+  memset(&parser, 0, sizeof(Parser));
   parser.module = module;
   parser.source = source;
   parser.tokenStart = source;
@@ -1361,4 +1387,22 @@ ObjFunction* compile(ObaVM* vm, ObjModule* module, const char* source,
 
 ObjFunction* obaCompile(ObaVM* vm, ObjModule* module, const char* source) {
   return compile(vm, module, source, NULL, "(script)", 8);
+}
+
+void markCompilerRoots(ObaVM* vm, Compiler* compiler) {
+  if (compiler == NULL) return;
+
+  obaGrayValue(vm, compiler->parser->current.value);
+  obaGrayValue(vm, compiler->parser->previous.value);
+  obaGrayObject(vm, (Obj*)compiler->parser->module);
+
+  do {
+    // Mark the compiler's function, since write to the function's chunk during
+    // compilation may trigger an allocation/GC.
+    if (compiler->function != NULL) {
+      obaGrayObject(vm, (Obj*)compiler->function);
+    }
+
+    compiler = compiler->parent;
+  } while (compiler != NULL);
 }

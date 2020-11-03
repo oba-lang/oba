@@ -65,6 +65,7 @@ typedef enum {
 typedef struct Obj {
   ObjType type;
   struct Obj* next;
+  bool isMarked;
 } Obj;
 
 // A tagged-union representing Oba values.
@@ -141,8 +142,8 @@ typedef struct {
   } kind##Buffer;                                                              \
                                                                                \
   void init##kind##Buffer(kind##Buffer* buf);                                  \
-  void free##kind##Buffer(kind##Buffer*);                                      \
-  void write##kind##Buffer(kind##Buffer*, type);
+  void free##kind##Buffer(ObaVM*, kind##Buffer*);                              \
+  void write##kind##Buffer(ObaVM*, kind##Buffer*, type);
 
 #define DEFINE_BUFFER(kind, type)                                              \
   void init##kind##Buffer(kind##Buffer* buf) {                                 \
@@ -151,16 +152,16 @@ typedef struct {
     buf->values = NULL;                                                        \
   }                                                                            \
                                                                                \
-  void free##kind##Buffer(kind##Buffer* buf) {                                 \
-    FREE_ARRAY(type, buf->values, buf->capacity);                              \
+  void free##kind##Buffer(ObaVM* vm, kind##Buffer* buf) {                      \
+    FREE_ARRAY(vm, type, buf->values, buf->capacity);                          \
     init##kind##Buffer(buf);                                                   \
   }                                                                            \
                                                                                \
-  void write##kind##Buffer(kind##Buffer* buf, type value) {                    \
+  void write##kind##Buffer(ObaVM* vm, kind##Buffer* buf, type value) {         \
     if (buf->capacity <= buf->count) {                                         \
       int oldCap = buf->capacity;                                              \
       buf->capacity = GROW_CAPACITY(oldCap);                                   \
-      buf->values = GROW_ARRAY(type, buf->values, oldCap, buf->capacity);      \
+      buf->values = GROW_ARRAY(vm, type, buf->values, oldCap, buf->capacity);  \
     }                                                                          \
     buf->values[buf->count] = value;                                           \
     buf->count++;                                                              \
@@ -179,9 +180,15 @@ void printValue(Value value);
 bool canAssignType(Value, Value);
 const char* valueTypeName(Value);
 
+void obaGrayTable(ObaVM*, Table*);
+void obaGrayValue(ObaVM*, Value);
+void obaGrayValueBuffer(ObaVM*, ValueBuffer*);
+void obaGrayObject(ObaVM*, Obj*);
+void blackenObject(ObaVM*, Obj*);
+
 ObjString* copyString(ObaVM* vm, const char* chars, int length);
 Obj* allocateObject(ObaVM* vm, size_t size, ObjType type);
-void freeObject(Obj*);
+void freeObject(ObaVM*, Obj*);
 
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash);
 ObjString* takeString(ObaVM* vm, char* chars, int length);
@@ -194,10 +201,10 @@ ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity);
 ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor);
 
 void initTable(Table* table);
-void freeTable(Table* table);
+void freeTable(ObaVM* vm, Table* table);
 Entry* findEntry(Entry* entries, int capacity, ObjString* key);
-void adjustCapacity(Table* table, int capacity);
+void adjustCapacity(ObaVM* vm, Table* table, int capacity);
 bool tableGet(Table* table, ObjString* key, Value* value);
-bool tableSet(Table* table, ObjString* key, Value value);
+bool tableSet(ObaVM* vm, Table* table, ObjString* key, Value value);
 
 #endif

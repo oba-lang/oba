@@ -4,7 +4,7 @@ import "system"
 {
   let xs = list::Empty()
 
-  let size = 5
+  let size = 10
   let i = size
   while i > 0 {
     xs = list::append(i, xs)
@@ -19,9 +19,9 @@ import "system"
   let values = list::format(xs)
   let sorted = list::format(list::sort(xs))
 
-  system::println("Length is %(len)") // expect: Length is 5
-  system::println("Values: %(values)") // expect: Values: 5,4,3,2,1
-  system::println("Odds: %(odds)") // expect: Odds: 5,3,1
-  system::println("Concatenated: %(concatenated)") // expect: Concatenated: 5,4,3,2,1,5,4,3,2,1
-  system::println("Sorted: %(sorted)") // expect: Sorted: 1,2,3,4,5
+  system::println("Length is %(len)") // expect: Length is 10
+  system::println("Values: %(values)") // expect: Values: 10,9,8,7,6,5,4,3,2,1
+  system::println("Odds: %(odds)") // expect: Odds: 9,7,5,3,1
+  system::println("Concatenated: %(concatenated)") // expect: Concatenated: 10,9,8,7,6,5,4,3,2,1,10,9,8,7,6,5,4,3,2,1
+  system::println("Sorted: %(sorted)") // expect: Sorted: 1,2,3,4,5,6,7,8,9,10
 }

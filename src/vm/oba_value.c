@@ -96,7 +96,7 @@ int formatObject(ObaVM* vm, char* buf, Value value) {
   case OBJ_FUNCTION:
     return formatFunction(vm, buf, AS_FUNCTION(value));
   case OBJ_STRING:
-    return sprintf(buf, AS_CSTRING(value));
+    return sprintf(buf, "%s", AS_CSTRING(value));
   case OBJ_NATIVE:
     return sprintf(buf, "<native fn>");
   case OBJ_UPVALUE:
@@ -109,9 +109,9 @@ int formatObject(ObaVM* vm, char* buf, Value value) {
     ObjInstance* instance = (ObjInstance*)obj;
 
     int length = sprintf(buf, "(");
-    length += sprintf(buf + length, instance->ctor->family->chars);
+    length += sprintf(buf + length, "%s", instance->ctor->family->chars);
     length += sprintf(buf + length, "::");
-    length += sprintf(buf + length, instance->ctor->name->chars);
+    length += sprintf(buf + length, "%s", instance->ctor->name->chars);
 
     int fields = instance->ctor->arity;
     if (fields > 0) {
@@ -184,62 +184,66 @@ void printObject(Value value) {
 }
 
 Obj* allocateObject(ObaVM* vm, size_t size, ObjType type) {
-#ifdef DEBUG_TRACE_EXECUTION
-  printf("allocate object type: %d size %d\n", type, size);
+  Obj* obj = (Obj*)reallocate(vm, NULL, 0, size);
+  memset(obj, 0, size);
+
+#ifdef DEBUG_LOG_GC
+  printf("@%p allocate %ld  for object type: %d\n", (void*)obj, size, type);
 #endif
-  Obj* object = (Obj*)reallocate(NULL, 0, size);
-  object->type = type;
-  object->next = vm->objects;
-  vm->objects = object;
-  return object;
+
+  obj->type = type;
+  obj->next = vm->objects;
+  obj->isMarked = false;
+  vm->objects = obj;
+  return obj;
 }
 
-void freeObject(Obj* obj) {
-#ifdef DEBUG_TRACE_EXECUTION
-  printf("free object type: %d\n", obj->type);
+void freeObject(ObaVM* vm, Obj* obj) {
+#ifdef DEBUG_LOG_GC
+  printf("@%p free object type: %d\n", (void*)obj, obj->type);
   printObject(OBJ_VAL(obj));
-  printf(" @ %p\n", obj);
+  printf("\n");
 #endif
 
   switch (obj->type) {
   case OBJ_STRING: {
     ObjString* string = (ObjString*)obj;
-    FREE_ARRAY(char, string->chars, string->length + 1);
-    FREE(ObjString, obj);
+    FREE_ARRAY(vm, char, string->chars, string->length + 1);
+    FREE(vm, ObjString, obj);
     break;
   }
   case OBJ_NATIVE:
-    FREE(ObjNative, obj);
+    FREE(vm, ObjNative, obj);
     break;
   case OBJ_FUNCTION: {
     ObjFunction* function = (ObjFunction*)obj;
-    freeChunk(&function->chunk);
-    FREE(ObjFunction, obj);
+    freeChunk(vm, &function->chunk);
+    FREE(vm, ObjFunction, obj);
     break;
   }
   case OBJ_CLOSURE: {
     ObjClosure* closure = (ObjClosure*)obj;
-    FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
-    FREE(ObjClosure, obj);
+    FREE_ARRAY(vm, ObjUpvalue*, closure->upvalues, closure->upvalueCount);
+    FREE(vm, ObjClosure, obj);
     break;
   }
   case OBJ_UPVALUE:
-    FREE(ObjUpvalue, obj);
+    FREE(vm, ObjUpvalue, obj);
     break;
   case OBJ_MODULE: {
     ObjModule* module = (ObjModule*)obj;
-    freeTable(module->variables);
+    freeTable(vm, module->variables);
     free(module->variables);
-    FREE(ObjModule, obj);
+    FREE(vm, ObjModule, obj);
     break;
   }
   case OBJ_CTOR:
-    FREE(ObjCtor, obj);
+    FREE(vm, ObjCtor, obj);
     break;
   case OBJ_INSTANCE: {
     ObjInstance* instance = (ObjInstance*)obj;
-    FREE_ARRAY(Value, instance->fields, instance->ctor->arity);
-    FREE(ObjInstance, obj);
+    FREE_ARRAY(vm, Value, instance->fields, instance->ctor->arity);
+    FREE(vm, ObjInstance, obj);
     break;
   }
   }
@@ -271,7 +275,7 @@ static uint32_t hashString(const char* key, int length) {
 }
 
 ObjString* copyString(ObaVM* vm, const char* chars, int length) {
-  char* heapChars = ALLOCATE(char, length + 1);
+  char* heapChars = ALLOCATE(vm, char, length + 1);
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
   uint32_t hash = hashString(heapChars, length);
@@ -291,15 +295,30 @@ ObjNative* newNative(ObaVM* vm, NativeFn function) {
 }
 
 ObjModule* newModule(ObaVM* vm, ObjString* name) {
+  obaPushRoot(vm, (Obj*)name);
+
   ObjModule* module = ALLOCATE_OBJ(vm, ObjModule, OBJ_MODULE);
   module->name = name;
-  module->variables = (Table*)reallocate(NULL, 0, sizeof(Table));
+
+  obaPopRoot(vm);
+  obaPushRoot(vm, (Obj*)module);
+
+  module->variables = (Table*)reallocate(vm, NULL, 0, sizeof(Table));
   initTable(module->variables);
+
+  obaPopRoot(vm);
   return module;
 }
 
 ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity) {
+  obaPushRoot(vm, (Obj*)family);
+  obaPushRoot(vm, (Obj*)name);
+
   ObjCtor* ctor = ALLOCATE_OBJ(vm, ObjCtor, OBJ_CTOR);
+
+  obaPopRoot(vm);
+  obaPopRoot(vm);
+
   ctor->family = family;
   ctor->name = name;
   ctor->arity = arity;
@@ -307,9 +326,16 @@ ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity) {
 }
 
 ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor) {
+  obaPushRoot(vm, (Obj*)ctor);
+
   ObjInstance* instance = ALLOCATE_OBJ(vm, ObjInstance, OBJ_INSTANCE);
   instance->ctor = ctor;
-  instance->fields = ALLOCATE(Value, ctor->arity);
+
+  obaPushRoot(vm, (Obj*)instance);
+  instance->fields = ALLOCATE(vm, Value, ctor->arity);
+
+  obaPopRoot(vm); // ctor.
+  obaPopRoot(vm); // instance.
   return instance;
 }
 
@@ -401,6 +427,113 @@ void printValue(Value value) {
   }
 }
 
+void obaGrayValueBuffer(ObaVM* vm, ValueBuffer* buf) {
+  for (int i = 0; i < buf->count; i++) {
+    obaGrayValue(vm, buf->values[i]);
+  }
+}
+void obaGrayTable(ObaVM* vm, Table* table) {
+  if (table == NULL) return;
+  for (int i = 0; i < table->capacity; i++) {
+    Entry* entry = &table->entries[i];
+    obaGrayObject(vm, (Obj*)entry->key);
+    obaGrayValue(vm, entry->value);
+  }
+}
+
+void blackenObject(ObaVM* vm, Obj* obj) {
+#ifdef DEBUG_LOG_GC
+  printf("@%p blacken ", (void*)obj);
+  printValue(OBJ_VAL(obj));
+  printf("\n");
+#endif
+
+  switch (obj->type) {
+  case OBJ_NATIVE:
+  case OBJ_STRING:
+    break;
+  case OBJ_CLOSURE: {
+    ObjClosure* closure = (ObjClosure*)obj;
+    obaGrayObject(vm, (Obj*)closure->function);
+    if (closure->upvalues != NULL) {
+      for (int i = 0; i < closure->upvalueCount; i++) {
+        obaGrayObject(vm, (Obj*)closure->upvalues[i]);
+      }
+    }
+    break;
+  }
+  case OBJ_FUNCTION: {
+    ObjFunction* function = (ObjFunction*)obj;
+    obaGrayObject(vm, (Obj*)function->name);
+    obaGrayObject(vm, (Obj*)function->module);
+    obaGrayValueBuffer(vm, &function->chunk.constants);
+    break;
+  }
+  case OBJ_UPVALUE: {
+    ObjUpvalue* upvalue = (ObjUpvalue*)obj;
+    obaGrayValue(vm, upvalue->closed);
+    // No need to mark upvalue->location; It's on the stack, so it's marked as a
+    // GC root by the VM.
+    break;
+  }
+  case OBJ_MODULE: {
+    ObjModule* module = (ObjModule*)obj;
+    obaGrayTable(vm, module->variables);
+    obaGrayObject(vm, (Obj*)module->name);
+    break;
+  }
+  case OBJ_CTOR: {
+    ObjCtor* ctor = (ObjCtor*)obj;
+    obaGrayObject(vm, (Obj*)ctor->name);
+    obaGrayObject(vm, (Obj*)ctor->family);
+    break;
+  }
+  case OBJ_INSTANCE: {
+    ObjInstance* instance = (ObjInstance*)obj;
+    obaGrayObject(vm, (Obj*)instance->ctor);
+    if (instance->fields != NULL) {
+      for (int i = 0; i < instance->ctor->arity; i++) {
+        obaGrayValue(vm, instance->fields[i]);
+      }
+    }
+    break;
+  }
+  }
+}
+
+void obaGrayObject(ObaVM* vm, Obj* obj) {
+  if (obj == NULL) return;
+  if (obj->isMarked) return;
+#ifdef DEBUG_LOG_GC
+  printf("@%p mark ", (void*)obj);
+  printValue(OBJ_VAL(obj));
+  printf("\n");
+#endif
+
+  obj->isMarked = true;
+
+  // TOOD(kendal): Why not use an ObjectBuffer (dynamic array) here?
+  if (vm->grayCapacity < vm->grayCount + 1) {
+    vm->grayCapacity = GROW_CAPACITY(vm->grayCapacity);
+    // realloc directly to avoid triggering a recursive GC.
+    vm->grayStack = realloc(vm->grayStack, sizeof(Obj*) * vm->grayCapacity);
+    // If we can't mark objects for GC, just exit.
+    if (vm->grayStack == NULL) {
+#ifdef DEBUG_LOG_GC
+      fprintf(stderr, "OOM during GC gray stack allocation\n");
+#endif
+      exit(1);
+    }
+  }
+
+  vm->grayStack[vm->grayCount++] = obj;
+}
+
+void obaGrayValue(ObaVM* vm, Value value) {
+  if (!IS_OBJ(value)) return;
+  obaGrayObject(vm, AS_OBJ(value));
+}
+
 void initTable(Table* table) {
   table->count = 0;
   table->capacity = 0;
@@ -409,8 +542,8 @@ void initTable(Table* table) {
 
 // Frees the memory held by all table entries. This does not free the table
 // pointer itself.
-void freeTable(Table* table) {
-  FREE_ARRAY(Entry, table->entries, table->capacity);
+void freeTable(ObaVM* vm, Table* table) {
+  FREE_ARRAY(vm, Entry, table->entries, table->capacity);
   initTable(table);
 }
 
@@ -427,8 +560,8 @@ Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
   }
 }
 
-void adjustCapacity(Table* table, int capacity) {
-  Entry* entries = ALLOCATE(Entry, capacity);
+void adjustCapacity(ObaVM* vm, Table* table, int capacity) {
+  Entry* entries = ALLOCATE(vm, Entry, capacity);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = NULL;
     entries[i].value = NIL_VAL;
@@ -443,7 +576,7 @@ void adjustCapacity(Table* table, int capacity) {
     dest->value = entry->value;
   }
 
-  FREE_ARRAY(Entry, table->entries, table->capacity);
+  FREE_ARRAY(vm, Entry, table->entries, table->capacity);
   table->entries = entries;
   table->capacity = capacity;
 }
@@ -460,10 +593,10 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
   return true;
 }
 
-bool tableSet(Table* table, ObjString* key, Value value) {
+bool tableSet(ObaVM* vm, Table* table, ObjString* key, Value value) {
   if (table->count <= table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
-    adjustCapacity(table, capacity);
+    adjustCapacity(vm, table, capacity);
   }
 
   Entry* entry = findEntry(table->entries, table->capacity, key);

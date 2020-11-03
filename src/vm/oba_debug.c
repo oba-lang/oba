@@ -129,7 +129,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
   case OP_DEBUG:
     return simpleInstruction("OP_DEBUG", chunk, offset);
   case OP_IMPORT_MODULE:
-    return simpleInstruction("OP_IMPORT_MODULE", chunk, offset);
+    return constantInstruction("OP_IMPORT_MODULE", chunk, offset);
   case OP_END_MODULE:
     return simpleInstruction("OP_END_MODULE", chunk, offset);
   case OP_EXIT:

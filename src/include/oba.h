@@ -1,6 +1,8 @@
 #ifndef oba_h
 #define oba_h
 
+#include <stdbool.h>
+
 #define OBA_VERSION_STRING "0.0.1"
 
 // Public APIs for the Oba language -------------------------------------------
@@ -27,8 +29,12 @@ void obaFreeVM(ObaVM*);
 // Runs [source], a string of Oba source code.
 ObaInterpretResult obaInterpret(ObaVM* vm, const char* source);
 
+// Triggers a garbage-collection in the VM.
+void obaCollectGarbage(ObaVM* vm);
+
 void obaErrorf(ObaVM* vm, const char* format, ...);
 void obaArityError(ObaVM* vm, int want, int got);
 void obaTypeError(ObaVM* vm, const char* expected);
+bool obaHasError(ObaVM* vm);
 
 #endif

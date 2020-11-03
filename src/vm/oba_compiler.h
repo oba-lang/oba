@@ -12,4 +12,8 @@
 // occurred while compiling. Code should not be executed if so.
 ObjFunction* obaCompile(ObaVM* vm, ObjModule* module, const char* source);
 
+typedef struct Compiler Compiler;
+
+void markCompilerRoots(ObaVM*, Compiler*);
+
 #endif
