@@ -96,7 +96,7 @@ int formatObject(ObaVM* vm, char* buf, Value value) {
   case OBJ_FUNCTION:
     return formatFunction(vm, buf, AS_FUNCTION(value));
   case OBJ_STRING:
-    return sprintf(buf, AS_CSTRING(value));
+    return sprintf(buf, "%s", AS_CSTRING(value));
   case OBJ_NATIVE:
     return sprintf(buf, "<native fn>");
   case OBJ_UPVALUE:
@@ -109,9 +109,9 @@ int formatObject(ObaVM* vm, char* buf, Value value) {
     ObjInstance* instance = (ObjInstance*)obj;
 
     int length = sprintf(buf, "(");
-    length += sprintf(buf + length, instance->ctor->family->chars);
+    length += sprintf(buf + length, "%s", instance->ctor->family->chars);
     length += sprintf(buf + length, "::");
-    length += sprintf(buf + length, instance->ctor->name->chars);
+    length += sprintf(buf + length, "%s", instance->ctor->name->chars);
 
     int fields = instance->ctor->arity;
     if (fields > 0) {
