@@ -7,12 +7,29 @@
 #include "oba_value.h"
 #include "oba_vm.h"
 
-int formatFunction(ObaVM* vm, char* buf, ObjFunction* function) {
+ObjString* formatCtor(ObaVM* vm, ObjCtor* ctor) {
+  int size = 3 + ctor->family->length + ctor->name->length;
+  if (size > FORMAT_VALUE_MAX) {
+    size = FORMAT_VALUE_MAX;
+  }
+  char buf[size];
+  int length =
+      snprintf(buf, size, "%s::%s", ctor->family->chars, ctor->name->chars);
+  return copyString(vm, buf, length);
+}
+
+ObjString* formatFunction(ObaVM* vm, ObjFunction* function) {
   if (function->name != NULL) {
-    return sprintf(buf, "<fn %s::%s>", function->module->name->chars,
-                   function->name->chars);
+    int size = 7 + function->module->name->length + function->name->length;
+    if (size > FORMAT_VALUE_MAX) {
+      size = FORMAT_VALUE_MAX;
+    }
+    char buf[size];
+    int length = snprintf(buf, size, "<fn %s::%s>",
+                          function->module->name->chars, function->name->chars);
+    return copyString(vm, buf, length);
   } else {
-    return sprintf(buf, "<fn>");
+    return copyString(vm, "<fn>", 4);
   }
 }
 
@@ -86,47 +103,72 @@ const char* valueTypeName(Value value) {
   }
 }
 
-int formatValue(ObaVM*, char*, Value);
-int formatObject(ObaVM* vm, char* buf, Value value) {
-  Obj* obj = AS_OBJ(value);
+ObjString* formatValue(ObaVM*, Value);
 
+ObjString* formatModule(ObaVM* vm, ObjModule* module) {
+  int size = FORMAT_VALUE_MAX;
+  if (module->name->length < size) {
+    size = module->name->length;
+  }
+  char buf[size];
+  int length = snprintf(buf, size, "<module %s>", module->name->chars);
+  return copyString(vm, buf, size);
+}
+
+ObjString* formatInstance(ObaVM* vm, ObjInstance* instance) {
+  StringBuffer buffer;
+  initStringBuffer(&buffer);
+
+  writeStringBuffer(vm, &buffer, copyString(vm, "(", 1));
+  writeStringBuffer(vm, &buffer, formatCtor(vm, instance->ctor));
+  writeStringBuffer(vm, &buffer, copyString(vm, ",", 1));
+
+  int field = 0;
+  while (field < instance->ctor->arity) {
+    ObjString* fieldString = formatValue(vm, instance->fields[field]);
+    writeStringBuffer(vm, &buffer, fieldString);
+    if (field + 1 < instance->ctor->arity) {
+      writeStringBuffer(vm, &buffer, copyString(vm, ",", 1));
+    }
+    field++;
+  }
+  writeStringBuffer(vm, &buffer, copyString(vm, ")", 1));
+
+  // Concatenate the array into a single string.
+  int fullsize = 0;
+  for (int i = 0; i < buffer.count; i++) {
+    fullsize += buffer.values[i]->length;
+  }
+
+  char* string = ALLOCATE(vm, char, fullsize + 1);
+  string[0] = '\0';
+  for (int i = 0; i < buffer.count; i++) {
+    strcat(string, buffer.values[i]->chars);
+  }
+
+  freeStringBuffer(vm, &buffer);
+  return takeString(vm, string, fullsize);
+}
+
+ObjString* formatObject(ObaVM* vm, Obj* obj) {
   switch (obj->type) {
   case OBJ_CLOSURE:
-    return formatFunction(vm, buf, AS_CLOSURE(value)->function);
+    return formatFunction(vm, ((ObjClosure*)obj)->function);
   case OBJ_FUNCTION:
-    return formatFunction(vm, buf, AS_FUNCTION(value));
+    return formatFunction(vm, (ObjFunction*)obj);
   case OBJ_STRING:
-    return sprintf(buf, "%s", AS_CSTRING(value));
+    return (ObjString*)obj;
   case OBJ_NATIVE:
-    return sprintf(buf, "<native fn>");
+    return copyString(vm, "<native fn>", 11);
   case OBJ_UPVALUE:
-    return formatValue(vm, buf, *(AS_UPVALUE(value)->location));
-  case OBJ_MODULE: {
-    ObjModule* module = (ObjModule*)obj;
-    return sprintf(buf, "<module %s>", module->name->chars);
-  }
+    return formatValue(vm, *((ObjUpvalue*)obj)->location);
+  case OBJ_MODULE:
+    return formatModule(vm, (ObjModule*)obj);
   case OBJ_INSTANCE: {
-    ObjInstance* instance = (ObjInstance*)obj;
-
-    int length = sprintf(buf, "(");
-    length += sprintf(buf + length, "%s", instance->ctor->family->chars);
-    length += sprintf(buf + length, "::");
-    length += sprintf(buf + length, "%s", instance->ctor->name->chars);
-
-    int fields = instance->ctor->arity;
-    if (fields > 0) {
-      length += sprintf(buf + length, ",");
-      for (int i = 0; i < fields; i++) {
-        length += formatValue(vm, buf + length, instance->fields[i]);
-        if (i + 1 < fields) {
-          length += sprintf(buf + length, ",");
-        }
-      }
-    }
-    return length + sprintf(buf + length, ")");
+    return formatInstance(vm, (ObjInstance*)obj);
   }
   default:
-    return 0; // Unreachable
+    return NULL; // Unreachable
   }
 }
 
@@ -251,12 +293,17 @@ void freeObject(ObaVM* vm, Obj* obj) {
 
 DEFINE_BUFFER(Byte, uint8_t)
 DEFINE_BUFFER(Value, Value)
+DEFINE_BUFFER(String, ObjString*)
 
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   ObjString* string = ALLOCATE_OBJ(vm, ObjString, OBJ_STRING);
   string->length = length;
   string->chars = chars;
   string->hash = hash;
+
+  obaPushRoot(vm, (Obj*)string);
+  tableSet(vm, vm->strings, string, NIL_VAL);
+  obaPopRoot(vm);
 
   return string;
 }
@@ -274,17 +321,32 @@ static uint32_t hashString(const char* key, int length) {
   return hash;
 }
 
+static ObjString* tableFindString(Table* table, const char* chars, int length,
+                                  uint32_t hash);
 ObjString* copyString(ObaVM* vm, const char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(vm->strings, chars, length, hash);
+  if (interned != NULL) {
+    return interned;
+  }
+
   char* heapChars = ALLOCATE(vm, char, length + 1);
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
-  uint32_t hash = hashString(heapChars, length);
 
   return allocateString(vm, heapChars, length, hash);
 }
 
 ObjString* takeString(ObaVM* vm, char* chars, int length) {
   uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(vm->strings, chars, length, hash);
+  if (interned != NULL) {
+    FREE_ARRAY(vm, char, chars, length + 1);
+    return interned;
+  }
+
   return allocateString(vm, chars, length, hash);
 }
 
@@ -328,14 +390,14 @@ ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity) {
 ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor) {
   obaPushRoot(vm, (Obj*)ctor);
 
+  // Allocate the fields before the ObjInstance, in-case a GC is triggered and
+  // we attempt to print the instance, which would iterate over a null pointer.
+  Value* fields = ALLOCATE(vm, Value, ctor->arity);
   ObjInstance* instance = ALLOCATE_OBJ(vm, ObjInstance, OBJ_INSTANCE);
   instance->ctor = ctor;
-
-  obaPushRoot(vm, (Obj*)instance);
-  instance->fields = ALLOCATE(vm, Value, ctor->arity);
+  instance->fields = fields;
 
   obaPopRoot(vm); // ctor.
-  obaPopRoot(vm); // instance.
   return instance;
 }
 
@@ -393,18 +455,29 @@ bool valuesEqual(Value a, Value b) {
   }
 }
 
-int formatValue(ObaVM* vm, char* buf, Value value) {
+ObjString* formatNumber(ObaVM* vm, Value value) {
+  char buf[FORMAT_VALUE_MAX];
+  int length = snprintf(buf, FORMAT_VALUE_MAX, "%g", AS_NUMBER(value));
+  return copyString(vm, buf, length);
+}
+
+ObjString* formatBool(ObaVM* vm, Value value) {
+  return AS_BOOL(value) ? copyString(vm, "true", 4)
+                        : copyString(vm, "false", 5);
+}
+
+ObjString* formatValue(ObaVM* vm, Value value) {
   switch (value.type) {
   case VAL_NUMBER:
-    return sprintf(buf, "%g", AS_NUMBER(value));
+    return formatNumber(vm, value);
   case VAL_BOOL:
-    return sprintf(buf, AS_BOOL(value) ? "true" : "false");
+    return formatBool(vm, value);
   case VAL_NIL:
-    return sprintf(buf, "nil");
+    return copyString(vm, "nil", 3);
   case VAL_OBJ:
-    return formatObject(vm, buf, value);
+    return formatObject(vm, AS_OBJ(value));
   default:
-    return 0; // Unreachable
+    return NULL; // Unreachable
   }
 }
 
@@ -427,11 +500,18 @@ void printValue(Value value) {
   }
 }
 
+void obaGrayStringBuffer(ObaVM* vm, StringBuffer* buf) {
+  for (int i = 0; i < buf->count; i++) {
+    obaGrayObject(vm, (Obj*)buf->values[i]);
+  }
+}
+
 void obaGrayValueBuffer(ObaVM* vm, ValueBuffer* buf) {
   for (int i = 0; i < buf->count; i++) {
     obaGrayValue(vm, buf->values[i]);
   }
 }
+
 void obaGrayTable(ObaVM* vm, Table* table) {
   if (table == NULL) return;
   for (int i = 0; i < table->capacity; i++) {
@@ -549,10 +629,19 @@ void freeTable(ObaVM* vm, Table* table) {
 
 Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
   uint32_t index = key->hash % capacity;
+  Entry* tombstone = NULL;
+
   for (;;) {
     Entry* entry = &entries[index];
 
-    if (entry->key == NULL || entry->key->hash == key->hash) {
+    if (entry->key == NULL) {
+      if (IS_NIL(entry->value)) {
+        // tombstone.
+        return tombstone != NULL ? tombstone : entry;
+      } else {
+        if (tombstone == NULL) tombstone = entry;
+      }
+    } else if (entry->key->hash == key->hash) {
       return entry;
     }
 
@@ -561,12 +650,13 @@ Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
 }
 
 void adjustCapacity(ObaVM* vm, Table* table, int capacity) {
-  Entry* entries = ALLOCATE(vm, Entry, capacity);
+  Entry* entries = ALLOCATE(vm, Entry, capacity + 1);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = NULL;
     entries[i].value = NIL_VAL;
   }
 
+  table->count = 0;
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
     if (entry->key == NULL) continue;
@@ -574,27 +664,44 @@ void adjustCapacity(ObaVM* vm, Table* table, int capacity) {
     Entry* dest = findEntry(entries, capacity, entry->key);
     dest->key = entry->key;
     dest->value = entry->value;
+    table->count++;
   }
 
-  FREE_ARRAY(vm, Entry, table->entries, table->capacity);
+  FREE_ARRAY(vm, Entry, table->entries, table->capacity + 1);
   table->entries = entries;
   table->capacity = capacity;
+}
+
+static ObjString* tableFindString(Table* table, const char* chars, int length,
+                                  uint32_t hash) {
+  if (table->count == 0) return NULL;
+
+  uint32_t index = hash % table->capacity;
+
+  for (;;) {
+    Entry* entry = &table->entries[index];
+    if (entry->key == NULL) {
+      if (IS_NIL(entry->value)) return NULL;
+    } else if (entry->key->length == length && entry->key->hash == hash &&
+               memcmp(entry->key->chars, chars, length) == 0) {
+      return entry->key;
+    }
+    index = (index + 1) % table->capacity;
+  }
 }
 
 bool tableGet(Table* table, ObjString* key, Value* value) {
   if (table->count == 0) return false;
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == NULL) {
-    return false;
-  }
+  if (entry->key == NULL) return false;
 
   *value = entry->value;
   return true;
 }
 
 bool tableSet(ObaVM* vm, Table* table, ObjString* key, Value value) {
-  if (table->count <= table->capacity * TABLE_MAX_LOAD) {
+  if (table->count >= table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(vm, table, capacity);
   }
@@ -602,9 +709,21 @@ bool tableSet(ObaVM* vm, Table* table, ObjString* key, Value value) {
   Entry* entry = findEntry(table->entries, table->capacity, key);
 
   bool isNewKey = entry->key == NULL;
-  if (isNewKey) table->count++;
+  if (isNewKey && IS_NIL(entry->value)) table->count++;
 
   entry->key = key;
   entry->value = value;
   return isNewKey;
+}
+
+bool tableDelete(ObaVM* vm, Table* table, ObjString* key) {
+  if (table->count == 0) return false;
+
+  Entry* entry = findEntry(table->entries, table->capacity, key);
+  if (entry->key == NULL) return false;
+
+  entry->key = NULL;
+  entry->value = OBA_BOOL(true);
+
+  return true;
 }

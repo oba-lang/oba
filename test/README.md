@@ -1,6 +1,9 @@
 The automated test suite for the VM.
 
-* `core/` - Tests for the built in core library.
+* `builtins/` - Tests for built in functions.
+
+* `mod/`      - Tests for modules shipped with the VM.
 
 * `language/` - Tests for the language itself, including the grammar and runtime
    semantics.
+

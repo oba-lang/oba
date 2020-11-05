@@ -1,0 +1,27 @@
+// !skip
+//
+// We stress GC during testing and this program would never terminate.
+
+import "list"
+import "system"
+
+{
+  let numbers = list::Empty()
+  let strings = list::Empty()
+
+  // Should build large data structures without crashing.
+  let size = 50000
+  while size > 0 {
+    numbers = list::Cons(size, numbers)
+    strings = list::Cons("%(size)", strings)
+    size = size - 1
+  }
+
+  // Should stringify large data structures without crashing.
+  let nf = list::format(numbers)
+  let sf = list::format(strings)
+
+  // Should print large strings without crashing.
+  system::println(nf)
+  system::println(sf)
+}

@@ -33,6 +33,11 @@ static void ensureStack(ObaVM* vm, int needed) {
   Value* oldStack = vm->stack;
   vm->stack = GROW_ARRAY(vm, Value, vm->stack, oldCapacity, vm->stackCapacity);
 
+#ifdef DEBUG_LOG_GC
+  printf("@%p resized stack from %ld to %ld\n", vm->stack, oldCapacity,
+         vm->stackCapacity);
+#endif
+
   // If the reallocation moved the stack, we need to fix up any pointers into
   // the old stack to point at the new one.
   if (vm->stack != oldStack) {
@@ -40,7 +45,8 @@ static void ensureStack(ObaVM* vm, int needed) {
     vm->stackTop = vm->stack + (int)(vm->stackTop - oldStack);
 
     // Call frame slots.
-    int frameCount = vm->frame - vm->frames;
+    // +1 because unlike vm->stackTop the current vm->frame is initialized.
+    int frameCount = (int)(vm->frame - vm->frames + 1);
     for (int i = 0; i < frameCount; i++) {
       CallFrame* frame = &vm->frames[i];
       frame->slots = vm->stack + (int)(frame->slots - oldStack);
@@ -68,19 +74,19 @@ static Value peek(ObaVM* vm, int lookahead) {
 }
 
 static void push(ObaVM* vm, Value value) {
-  if (vm->stackCapacity == 0) {
+  int count = 0;
+  if (vm->stackCapacity > 0) {
+    count = (int)(vm->stackTop - vm->stack);
+  }
+
+  if (count + 1 >= vm->stackCapacity) {
     if (IS_OBJ(value)) obaPushRoot(vm, AS_OBJ(value));
-    ensureStack(vm, MIN_STACK_CAPACITY);
+    growStack(vm);
     if (IS_OBJ(value)) obaPopRoot(vm);
   }
 
   *vm->stackTop = value;
   vm->stackTop++;
-
-  int count = (int)(vm->stackTop - vm->stack);
-  if (count == vm->stackCapacity) {
-    growStack(vm);
-  }
 }
 
 static Value pop(ObaVM* vm) {
@@ -97,9 +103,8 @@ static void defineNative(ObaVM* vm, const char* name, NativeFn function) {
 }
 
 void runtimeError(ObaVM* vm) {
-  char buf[MAX_ERROR_SIZE];
-  int length = formatValue(vm, buf, vm->error);
-  fprintf(stderr, "Runtime error: %s\n", buf);
+  ObjString* message = formatValue(vm, vm->error);
+  fprintf(stderr, "Runtime error: %s\n", message->chars);
 
 #ifndef DISABLE_STACK_TRACES
   CallFrame* frame;
@@ -705,9 +710,7 @@ static ObaInterpretResult run(ObaVM* vm) {
     }
 
     CASE_OP(STRING) : {
-      char buf[FORMAT_VALUE_MAX];
-      int length = formatValue(vm, buf, pop(vm));
-      Value string = OBJ_VAL(copyString(vm, buf, length));
+      Value string = OBJ_VAL(formatValue(vm, pop(vm)));
       push(vm, string);
       DISPATCH();
     }
@@ -821,6 +824,7 @@ static void markRoots(ObaVM* vm) {
   }
 
   obaGrayTable(vm, vm->globals);
+  obaGrayTable(vm, vm->strings);
   obaGrayValue(vm, vm->error);
   markCompilerRoots(vm, vm->compiler);
 }
@@ -922,6 +926,9 @@ ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
   vm->globals = (Table*)realloc(NULL, sizeof(Table));
   initTable(vm->globals);
 
+  vm->strings = (Table*)realloc(NULL, sizeof(Table));
+  initTable(vm->strings);
+
   registerBuiltins(vm, builtins, builtinsLength);
   return vm;
 }
@@ -929,9 +936,11 @@ ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
 void obaFreeVM(ObaVM* vm) {
   // Any non-object values held in object fields will be freed by this.
   freeObjects(vm);
-  freeTable(vm, vm->globals);
   FREE_ARRAY(vm, Value, vm->stack, vm->stackCapacity);
+  freeTable(vm, vm->globals);
   free(vm->globals);
+  freeTable(vm, vm->strings);
+  free(vm->strings);
   free(vm->grayStack);
   free(vm);
 }

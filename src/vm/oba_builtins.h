@@ -91,9 +91,7 @@ Value __native_println(ObaVM* vm, int argc, Value* argv) {
 
 Value __native_str(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 1);
-  char buf[FORMAT_VALUE_MAX];
-  int length = formatValue(vm, buf, argv[0]);
-  return OBJ_VAL(copyString(vm, buf, length));
+  return OBJ_VAL(formatValue(vm, argv[0]));
 }
 
 // Exports a symbol from a module as a VM global, available to all modules.
