@@ -45,7 +45,8 @@ static void ensureStack(ObaVM* vm, int needed) {
     vm->stackTop = vm->stack + (int)(vm->stackTop - oldStack);
 
     // Call frame slots.
-    int frameCount = vm->frame - vm->frames;
+    // +1 because unlike vm->stackTop the current vm->frame is initialized.
+    int frameCount = (int)(vm->frame - vm->frames + 1);
     for (int i = 0; i < frameCount; i++) {
       CallFrame* frame = &vm->frames[i];
       frame->slots = vm->stack + (int)(frame->slots - oldStack);
@@ -73,19 +74,19 @@ static Value peek(ObaVM* vm, int lookahead) {
 }
 
 static void push(ObaVM* vm, Value value) {
-  if (vm->stackCapacity == 0) {
+  int count = 0;
+  if (vm->stackCapacity > 0) {
+    count = (int)(vm->stackTop - vm->stack);
+  }
+
+  if (count + 1 >= vm->stackCapacity) {
     if (IS_OBJ(value)) obaPushRoot(vm, AS_OBJ(value));
-    ensureStack(vm, MIN_STACK_CAPACITY);
+    growStack(vm);
     if (IS_OBJ(value)) obaPopRoot(vm);
   }
 
   *vm->stackTop = value;
   vm->stackTop++;
-
-  int count = (int)(vm->stackTop - vm->stack);
-  if (count == vm->stackCapacity) {
-    growStack(vm);
-  }
 }
 
 static Value pop(ObaVM* vm) {
@@ -102,9 +103,8 @@ static void defineNative(ObaVM* vm, const char* name, NativeFn function) {
 }
 
 void runtimeError(ObaVM* vm) {
-  char buf[MAX_ERROR_SIZE];
-  int length = formatValue(vm, buf, vm->error);
-  fprintf(stderr, "Runtime error: %s\n", buf);
+  ObjString* message = formatValue(vm, vm->error);
+  fprintf(stderr, "Runtime error: %s\n", message->chars);
 
 #ifndef DISABLE_STACK_TRACES
   CallFrame* frame;
@@ -710,9 +710,7 @@ static ObaInterpretResult run(ObaVM* vm) {
     }
 
     CASE_OP(STRING) : {
-      char buf[FORMAT_VALUE_MAX];
-      int length = formatValue(vm, buf, pop(vm));
-      Value string = OBJ_VAL(copyString(vm, buf, length));
+      Value string = OBJ_VAL(formatValue(vm, pop(vm)));
       push(vm, string);
       DISPATCH();
     }

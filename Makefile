@@ -19,7 +19,7 @@ PROJECTS := oba
 TARGET := oba
 
 INCLUDES += -I ./src/include
-ALL_CFLAGS += $(INCLUDES) -o $(TARGET) -g
+ALL_CFLAGS += $(INCLUDES) -o $(TARGET) -g -DDEBUG_STRESS_GC
 
 .PHONY: all clean docs format run test help
 

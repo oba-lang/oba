@@ -170,13 +170,14 @@ typedef struct {
 
 DECLARE_BUFFER(Byte, uint8_t);
 DECLARE_BUFFER(Value, Value);
+DECLARE_BUFFER(String, ObjString*);
 
 static inline bool isObjType(Value value, ObjType type) {
   return IS_OBJ(value) && AS_OBJ(value)->type == type;
 }
 
 bool valuesEqual(Value a, Value b);
-int formatValue(ObaVM* vm, char*, Value value);
+ObjString* formatValue(ObaVM* vm, Value value);
 void printValue(Value value);
 bool canAssignType(Value, Value);
 const char* valueTypeName(Value);
@@ -184,6 +185,7 @@ const char* valueTypeName(Value);
 void obaGrayTable(ObaVM*, Table*);
 void obaGrayValue(ObaVM*, Value);
 void obaGrayValueBuffer(ObaVM*, ValueBuffer*);
+void obaGrayStringBuffer(ObaVM*, StringBuffer*);
 void obaGrayObject(ObaVM*, Obj*);
 void blackenObject(ObaVM*, Obj*);
 

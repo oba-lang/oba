@@ -15,14 +15,17 @@ import "system"
   fn odd x = x % 2 != 0
 
   let len = list::length(xs)
-  let concatenated = list::format(list::concat(xs, xs))
-  let odds = list::format(list::where(odd, xs))
-  let values = list::format(xs)
-  let sorted = list::format(list::sort(xs))
-
   system::println("Length is %(len)") // expect: Length is 10
+
+  let values = list::format(xs)
   system::println("Values: %(values)") // expect: Values: 10,9,8,7,6,5,4,3,2,1
+
+  let odds = list::format(list::where(odd, xs))
   system::println("Odds: %(odds)") // expect: Odds: 9,7,5,3,1
+
+  let concatenated = list::format(list::concat(xs, xs))
   system::println("Concatenated: %(concatenated)") // expect: Concatenated: 10,9,8,7,6,5,4,3,2,1,10,9,8,7,6,5,4,3,2,1
+
+  let sorted = list::format(list::sort(xs))
   system::println("Sorted: %(sorted)") // expect: Sorted: 1,2,3,4,5,6,7,8,9,10
 }
