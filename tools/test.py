@@ -8,6 +8,7 @@ from subprocess import PIPE, Popen
 
 TEST_DIR = "test"
 
+SKIP_RE = re.compile("// !skip")
 STDIN_RE = re.compile("// stdin: ?(.*)")
 EXPECT_OUTPUT_RE = re.compile("// expect: ?(.*)")
 EXPECT_RUNTIME_ERROR_RE = re.compile("// expect runtime error: ?(.*)")
@@ -64,6 +65,10 @@ def run_test(oba, test_file):
     # Parse the test expectations.
     with open(test_file, "r") as f:
         for line in f.readlines():
+            match = SKIP_RE.search(line)
+            if match:
+                return []
+
             match = STDIN_RE.search(line)
             if match:
                 stdin += match.group(1) + "\n"

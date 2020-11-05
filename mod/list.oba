@@ -4,15 +4,10 @@
 data List = Empty | Cons x xs
 
 // Append adds an item to the end of a list.
-fn append x xs {
-  let os = Cons(x, Empty())
-  let rs = reverse(xs)
-  while rs != Empty() {
-    os = Cons(head(rs), os)
-    rs = tail(rs)
-  }
-  return os
-}
+fn append x xs = match xs
+  | Empty        = Cons(x, xs)
+  | Cons y ys    = Cons(y, append(x, ys))
+  ;
 
 // Length returns the length of a list.
 fn length xs  = _length(xs, 0)
