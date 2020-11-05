@@ -258,6 +258,10 @@ ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash) {
   string->chars = chars;
   string->hash = hash;
 
+  obaPushRoot(vm, (Obj*)string);
+  tableSet(vm, vm->strings, string, NIL_VAL);
+  obaPopRoot(vm);
+
   return string;
 }
 
@@ -274,17 +278,32 @@ static uint32_t hashString(const char* key, int length) {
   return hash;
 }
 
+static ObjString* tableFindString(Table* table, const char* chars, int length,
+                                  uint32_t hash);
 ObjString* copyString(ObaVM* vm, const char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(vm->strings, chars, length, hash);
+  if (interned != NULL) {
+    return interned;
+  }
+
   char* heapChars = ALLOCATE(vm, char, length + 1);
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
-  uint32_t hash = hashString(heapChars, length);
 
   return allocateString(vm, heapChars, length, hash);
 }
 
 ObjString* takeString(ObaVM* vm, char* chars, int length) {
   uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(vm->strings, chars, length, hash);
+  if (interned != NULL) {
+    FREE_ARRAY(vm, char, chars, length + 1);
+    return interned;
+  }
+
   return allocateString(vm, chars, length, hash);
 }
 
@@ -328,14 +347,14 @@ ObjCtor* newCtor(ObaVM* vm, ObjString* family, ObjString* name, int arity) {
 ObjInstance* newInstance(ObaVM* vm, ObjCtor* ctor) {
   obaPushRoot(vm, (Obj*)ctor);
 
+  // Allocate the fields before the ObjInstance, in-case a GC is triggered and
+  // we attempt to print the instance, which would iterate over a null pointer.
+  Value* fields = ALLOCATE(vm, Value, ctor->arity);
   ObjInstance* instance = ALLOCATE_OBJ(vm, ObjInstance, OBJ_INSTANCE);
   instance->ctor = ctor;
-
-  obaPushRoot(vm, (Obj*)instance);
-  instance->fields = ALLOCATE(vm, Value, ctor->arity);
+  instance->fields = fields;
 
   obaPopRoot(vm); // ctor.
-  obaPopRoot(vm); // instance.
   return instance;
 }
 
@@ -549,10 +568,19 @@ void freeTable(ObaVM* vm, Table* table) {
 
 Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
   uint32_t index = key->hash % capacity;
+  Entry* tombstone = NULL;
+
   for (;;) {
     Entry* entry = &entries[index];
 
-    if (entry->key == NULL || entry->key->hash == key->hash) {
+    if (entry->key == NULL) {
+      if (IS_NIL(entry->value)) {
+        // tombstone.
+        return tombstone != NULL ? tombstone : entry;
+      } else {
+        if (tombstone == NULL) tombstone = entry;
+      }
+    } else if (entry->key->hash == key->hash) {
       return entry;
     }
 
@@ -561,12 +589,13 @@ Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
 }
 
 void adjustCapacity(ObaVM* vm, Table* table, int capacity) {
-  Entry* entries = ALLOCATE(vm, Entry, capacity);
+  Entry* entries = ALLOCATE(vm, Entry, capacity + 1);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = NULL;
     entries[i].value = NIL_VAL;
   }
 
+  table->count = 0;
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
     if (entry->key == NULL) continue;
@@ -574,27 +603,44 @@ void adjustCapacity(ObaVM* vm, Table* table, int capacity) {
     Entry* dest = findEntry(entries, capacity, entry->key);
     dest->key = entry->key;
     dest->value = entry->value;
+    table->count++;
   }
 
-  FREE_ARRAY(vm, Entry, table->entries, table->capacity);
+  FREE_ARRAY(vm, Entry, table->entries, table->capacity + 1);
   table->entries = entries;
   table->capacity = capacity;
+}
+
+static ObjString* tableFindString(Table* table, const char* chars, int length,
+                                  uint32_t hash) {
+  if (table->count == 0) return NULL;
+
+  uint32_t index = hash % table->capacity;
+
+  for (;;) {
+    Entry* entry = &table->entries[index];
+    if (entry->key == NULL) {
+      if (IS_NIL(entry->value)) return NULL;
+    } else if (entry->key->length == length && entry->key->hash == hash &&
+               memcmp(entry->key->chars, chars, length) == 0) {
+      return entry->key;
+    }
+    index = (index + 1) % table->capacity;
+  }
 }
 
 bool tableGet(Table* table, ObjString* key, Value* value) {
   if (table->count == 0) return false;
 
   Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == NULL) {
-    return false;
-  }
+  if (entry->key == NULL) return false;
 
   *value = entry->value;
   return true;
 }
 
 bool tableSet(ObaVM* vm, Table* table, ObjString* key, Value value) {
-  if (table->count <= table->capacity * TABLE_MAX_LOAD) {
+  if (table->count >= table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(vm, table, capacity);
   }
@@ -602,9 +648,21 @@ bool tableSet(ObaVM* vm, Table* table, ObjString* key, Value value) {
   Entry* entry = findEntry(table->entries, table->capacity, key);
 
   bool isNewKey = entry->key == NULL;
-  if (isNewKey) table->count++;
+  if (isNewKey && IS_NIL(entry->value)) table->count++;
 
   entry->key = key;
   entry->value = value;
   return isNewKey;
+}
+
+bool tableDelete(ObaVM* vm, Table* table, ObjString* key) {
+  if (table->count == 0) return false;
+
+  Entry* entry = findEntry(table->entries, table->capacity, key);
+  if (entry->key == NULL) return false;
+
+  entry->key = NULL;
+  entry->value = OBA_BOOL(true);
+
+  return true;
 }

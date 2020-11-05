@@ -35,6 +35,7 @@ struct ObaVM {
   // Builtins are defined here. When searching for a global, the VM first checks
   // the current module, then this table.
   Table* globals;
+  Table* strings;
 
   ObjUpvalue* openUpvalues;
   Obj* objects;

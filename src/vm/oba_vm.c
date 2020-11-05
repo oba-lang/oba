@@ -33,6 +33,11 @@ static void ensureStack(ObaVM* vm, int needed) {
   Value* oldStack = vm->stack;
   vm->stack = GROW_ARRAY(vm, Value, vm->stack, oldCapacity, vm->stackCapacity);
 
+#ifdef DEBUG_LOG_GC
+  printf("@%p resized stack from %ld to %ld\n", vm->stack, oldCapacity,
+         vm->stackCapacity);
+#endif
+
   // If the reallocation moved the stack, we need to fix up any pointers into
   // the old stack to point at the new one.
   if (vm->stack != oldStack) {
@@ -821,6 +826,7 @@ static void markRoots(ObaVM* vm) {
   }
 
   obaGrayTable(vm, vm->globals);
+  obaGrayTable(vm, vm->strings);
   obaGrayValue(vm, vm->error);
   markCompilerRoots(vm, vm->compiler);
 }
@@ -922,6 +928,9 @@ ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
   vm->globals = (Table*)realloc(NULL, sizeof(Table));
   initTable(vm->globals);
 
+  vm->strings = (Table*)realloc(NULL, sizeof(Table));
+  initTable(vm->strings);
+
   registerBuiltins(vm, builtins, builtinsLength);
   return vm;
 }
@@ -929,9 +938,11 @@ ObaVM* obaNewVM(Builtin* builtins, int builtinsLength) {
 void obaFreeVM(ObaVM* vm) {
   // Any non-object values held in object fields will be freed by this.
   freeObjects(vm);
-  freeTable(vm, vm->globals);
   FREE_ARRAY(vm, Value, vm->stack, vm->stackCapacity);
+  freeTable(vm, vm->globals);
   free(vm->globals);
+  freeTable(vm, vm->strings);
+  free(vm->strings);
   free(vm->grayStack);
   free(vm);
 }

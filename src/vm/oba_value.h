@@ -18,6 +18,7 @@
 #define IS_BOOL(value) ((value).type == VAL_BOOL)
 #define IS_NUMBER(value) ((value).type == VAL_NUMBER)
 #define IS_OBJ(value) ((value).type == VAL_OBJ)
+#define IS_NIL(value) ((value).type == VAL_NIL)
 #define IS_STRING(value) isObjType(value, OBJ_STRING)
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
 #define IS_CLOSURE(value) isObjType(value, OBJ_CLOSURE)
