@@ -181,7 +181,6 @@ static bool callNative(ObaVM* vm, NativeFn native, int arity) {
   for (int i = 0; i < arity; i++) pop(vm);
   pop(vm); // native.
   push(vm, result);
-  obaCollectGarbage(vm);
   return valuesEqual(vm->error, NIL_VAL);
 }
 

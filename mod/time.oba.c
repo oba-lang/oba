@@ -3,12 +3,12 @@ const char* timeModSource =
 
     "// Now returns the time in seconds since the program started running.\n"
     "fn now {\n"
-    "__native_now()\n"
+    "return __native_now()\n"
     "}\n"
     "\n"
     "// Sleep makes the calling thread sleep until seconds have elapsed.\n"
     "fn sleep seconds {\n"
     "__native_sleep(seconds)\n"
-    "None()\n"
+    "return None()\n"
     "}\n"
     "\n";

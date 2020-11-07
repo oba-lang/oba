@@ -196,6 +196,7 @@ void freeObject(ObaVM*, Obj*);
 ObjString* copyString(ObaVM* vm, const char* chars, int length);
 ObjString* allocateString(ObaVM* vm, char* chars, int length, uint32_t hash);
 ObjString* takeString(ObaVM* vm, char* chars, int length);
+ObjString* trimString(ObaVM*, ObjString*);
 
 ObjNative* newNative(ObaVM*, NativeFn);
 

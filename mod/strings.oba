@@ -1,0 +1,4 @@
+// Trim removes leading and trailing whitespace from a string.
+fn trim s {
+  return __native_string_trim(s)
+}
