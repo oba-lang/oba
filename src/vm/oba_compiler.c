@@ -56,8 +56,9 @@ typedef struct {
   // Code is not executed if this is true.
   bool hasError;
 
-  // Whether the lexer is currently inside an interpolated expression.
-  bool isInterpolating;
+  // The number of '(' without matching ')' during a string interpolation.
+  // If this is nonzero the lexer is currently in an interpolated expression.
+  int interpolation;
 
   const char* tokenStart;
   const char* currentChar;
@@ -134,7 +135,6 @@ static void grouping(Compiler*, bool);
 static void unaryOp(Compiler*, bool);
 static void infixOp(Compiler*, bool);
 static void identifier(Compiler*, bool);
-static void member(Compiler*, bool);
 static void literal(Compiler*, bool);
 static void interpolation(Compiler*, bool);
 static void matchExpr(Compiler*, bool);
@@ -408,7 +408,7 @@ GrammarRule rules[] =  {
   /* TOK_MODULO        */ INFIX_OPERATOR(PREC_SUM, "%"),
   /* TOK_MULTIPLY      */ INFIX_OPERATOR(PREC_PRODUCT, "*"),
   /* TOK_DIVIDE        */ INFIX_OPERATOR(PREC_PRODUCT, "/"),
-  /* TOK_MEMBER        */ INFIX(PREC_MEMBER, member),
+  /* TOK_MEMBER        */ INFIX(PREC_MEMBER, identifier),
   /* TOK_IDENT         */ PREFIX(identifier),
   /* TOK_NUMBER        */ PREFIX(literal),
   /* TOK_STRING        */ PREFIX(literal),
@@ -525,7 +525,7 @@ static void readString(Compiler* compiler) {
       if (nextChar(compiler) != '(') {
         lexError(compiler, "Expected '(' after '%%'.");
       }
-      compiler->parser->isInterpolating = true;
+      compiler->parser->interpolation = 1;
       type = TOK_INTERPOLATION;
       break;
     }
@@ -630,12 +630,15 @@ static void nextToken(Compiler* compiler) {
       makeToken(compiler, TOK_GUARD);
       return;
     case '(':
+      if (compiler->parser->interpolation > 0) {
+        compiler->parser->interpolation++;
+      }
       makeToken(compiler, TOK_LPAREN);
       return;
     case ')': {
-      if (compiler->parser->isInterpolating) {
+      if (compiler->parser->interpolation > 0 &&
+          --compiler->parser->interpolation == 0) {
         // This is the end of an interpolated expression.
-        compiler->parser->isInterpolating = false;
         readString(compiler);
         return;
       }
@@ -1086,7 +1089,7 @@ static void interpolation(Compiler* compiler, bool canAssign) {
   emitOp(compiler, OP_ADD);
 }
 
-static void variable(Compiler* compiler, bool canAssign) {
+static void variable(Compiler* compiler, bool canAssign, bool imported) {
   OpCode getOp;
   OpCode setOp;
 
@@ -1111,6 +1114,9 @@ static void variable(Compiler* compiler, bool canAssign) {
 
   if (set) {
     expression(compiler);
+  }
+  if (imported) {
+    getOp = OP_GET_IMPORTED_VARIABLE;
   }
 
   emitOp(compiler, set ? setOp : getOp);
@@ -1140,31 +1146,16 @@ static void functionCall(Compiler* compiler, bool canAssign) {
 }
 
 static void identifier(Compiler* compiler, bool canAssign) {
-  variable(compiler, canAssign);
-  if (peek(compiler) == TOK_LPAREN) {
-    functionCall(compiler, canAssign);
+  variable(compiler, canAssign, false);
+
+  while (match(compiler, TOK_MEMBER)) {
+    consume(compiler, TOK_IDENT, "Expected an identifier after '::'");
+    variable(compiler, canAssign, true);
   }
-}
-
-static void member(Compiler* compiler, bool canAssign) {
-  nextToken(compiler);
-  Token token = compiler->parser->previous;
-
-  // TODO(kendal) It feels like either identifier() or variable() should be able
-  // to handle this case, and member() should not be needed. Find a way to merge
-  // them.
-  ObjString* name = copyString(compiler->vm, token.start, token.length);
-  obaPushRoot(compiler->vm, (Obj*)name);
-
-  int arg = addConstant(compiler, OBJ_VAL(name));
-  emitOp(compiler, OP_GET_IMPORTED_VARIABLE);
-  emitByte(compiler, (uint8_t)arg);
 
   if (peek(compiler) == TOK_LPAREN) {
     functionCall(compiler, canAssign);
   }
-
-  obaPopRoot(compiler->vm);
 }
 
 static void pattern(Compiler* compiler) {
@@ -1185,7 +1176,7 @@ static void pattern(Compiler* compiler) {
     emitConstant(compiler, token.value);
     break;
   case TOK_IDENT:
-    variable(compiler, false);
+    identifier(compiler, false);
     break;
   default:
     error(compiler, "Expected a constant value.");
@@ -1365,7 +1356,7 @@ ObjFunction* compile(ObaVM* vm, ObjModule* module, const char* source,
   parser.current.length = 0;
   parser.current.line = 0;
   parser.hasError = false;
-  parser.isInterpolating = false;
+  parser.interpolation = 0;
 
   Compiler compiler;
   initCompiler(vm, &compiler, &parser, parent);

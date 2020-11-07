@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "oba.h"
+#include "oba_common.h"
 #include "oba_core_modules.h"
 #include "oba_value.h"
 #include "oba_vm.h"
@@ -61,19 +62,17 @@ Value __native_read_byte(ObaVM* vm, int argc, Value* argv) {
 Value __native_read_line(ObaVM* vm, int argc, Value* argv) {
   ASSERT_ARITY(vm, argc, 0);
   char* line = NULL;
-  size_t length;
+  size_t length = 0;
+  ssize_t nread;
 
-  if (getline(&line, &length, stdin) == -1) {
-    // TODO(kendal): produce some sort of error for the caller to handle.
+  if ((nread = getline(&line, &length, stdin)) == -1) {
     if (!feof(stdin)) {
       vm->error = OBJ_VAL(copyString(vm, "read", 4));
     }
     return NIL_VAL;
   }
 
-  Value value = OBJ_VAL(copyString(vm, line, length));
-  free(line);
-  return value;
+  return OBJ_VAL(takeString(vm, line, nread));
 }
 
 Value __native_print(ObaVM* vm, int argc, Value* argv) {
@@ -116,6 +115,12 @@ Value __native_frame_depth(ObaVM* vm, int argc, Value* argv) {
   return OBA_NUMBER((double)(vm->frame - vm->frames));
 }
 
+Value __native_string_trim(ObaVM* vm, int argc, Value* argv) {
+  ASSERT_ARITY(vm, argc, 1);
+  ASSERT(IS_STRING(argv[0]), "Expected a string");
+  return OBJ_VAL(trimString(vm, AS_STRING(argv[0])));
+}
+
 Builtin __builtins__[] = {
     // Host system interaction.
     {"__native_sleep", &__native_sleep},
@@ -133,6 +138,7 @@ Builtin __builtins__[] = {
 
     // Utilities.
     {"str", &__native_str},
+    {"__native_string_trim", &__native_string_trim},
     {NULL, NULL}, // Sentinel to mark the end of the array.
 };
 
@@ -150,11 +156,9 @@ extern const char* timeModSource;
 
 // Keep these sorted alphabetically.
 CoreModule __core_modules__[] = {
-    {"option", obaOptionModSource},
-    {"system", obaSystemModSource},
-    {"time", obaTimeModSource},
-    {"list", obaListModSource},
-    {NULL, NULL},
+    {"list", obaListModSource},       {"option", obaOptionModSource},
+    {"strings", obaStringsModSource}, {"system", obaSystemModSource},
+    {"time", obaTimeModSource},       {NULL, NULL},
 };
 
 #endif

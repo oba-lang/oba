@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -348,6 +349,29 @@ ObjString* takeString(ObaVM* vm, char* chars, int length) {
   }
 
   return allocateString(vm, chars, length, hash);
+}
+
+ObjString* trimString(ObaVM* vm, ObjString* string) {
+  if (string->length == 0) return string;
+
+  char* start = string->chars;
+  char* end = start + string->length - 1;
+  bool trimming = true;
+
+  while (trimming && start < end) {
+    trimming = false;
+    if (isspace(*start)) {
+      start++;
+      trimming = true;
+    }
+    if (isspace(*end)) {
+      end--;
+      trimming = true;
+    }
+  }
+
+  if (start > end || isspace(*start)) return copyString(vm, "", 0);
+  return copyString(vm, start, (int)(end - start + 1));
 }
 
 ObjNative* newNative(ObaVM* vm, NativeFn function) {

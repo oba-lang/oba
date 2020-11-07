@@ -1,0 +1,9 @@
+debug "" == __native_string_trim("") // expect: true
+debug "" == __native_string_trim(" ") // expect: true
+debug "" == __native_string_trim("  ") // expect: true
+debug "a" == __native_string_trim("a") // expect: true
+debug "a" == __native_string_trim("a ") // expect: true
+debug "a" == __native_string_trim(" a") // expect: true
+debug "a" == __native_string_trim(" a ") // expect: true
+debug "oba" == __native_string_trim(" oba     ") // expect: true
+debug "oba kenobi" == __native_string_trim("  oba kenobi ") // expect: true
